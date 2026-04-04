@@ -4,14 +4,14 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
-import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
  * Shared JWT token validator for services that need to verify tokens (e.g. API Gateway).
- * 
+ *
  * <p>Uses a simple symmetric secret key provided via 'jwt.secret-key' property.
  */
 @Service
@@ -32,20 +32,19 @@ public class JwtTokenValidator {
       // Create a HMAC-SHA key from the secret string
       this.secretKey = Keys.hmacShaKeyFor(secretKeyContent.getBytes(StandardCharsets.UTF_8));
     } catch (Exception e) {
-      throw new RuntimeException("Could not initialize secret key from property 'jwt.secret-key'. " +
-          "Ensure it is at least 32 characters (256 bits) long.", e);
+      throw new RuntimeException(
+          "Could not initialize secret key from property 'jwt.secret-key'. "
+              + "Ensure it is at least 32 characters (256 bits) long.",
+          e);
     }
   }
 
   public Claims validateToken(String token) {
     if (secretKey == null) {
-      throw new IllegalStateException("Secret Key not initialized. Please provide 'jwt.secret-key' property.");
+      throw new IllegalStateException(
+          "Secret Key not initialized. Please provide 'jwt.secret-key' property.");
     }
 
-    return Jwts.parser()
-        .verifyWith(secretKey)
-        .build()
-        .parseSignedClaims(token)
-        .getPayload();
+    return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token).getPayload();
   }
 }
