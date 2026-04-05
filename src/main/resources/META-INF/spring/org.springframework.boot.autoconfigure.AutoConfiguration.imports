@@ -1,1 +1,2 @@
 com.ecommerce.security.config.SecurityAutoConfiguration
+com.ecommerce.security.config.JpaAuditingConfig
