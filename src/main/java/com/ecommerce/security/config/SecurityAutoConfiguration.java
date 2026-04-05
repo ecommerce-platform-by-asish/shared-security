@@ -2,6 +2,7 @@ package com.ecommerce.security.config;
 
 import com.ecommerce.security.gateway.AuthenticationFilter;
 import com.ecommerce.security.jwt.JwtProvider;
+import com.ecommerce.security.jwt.TokenBlacklistManager;
 import java.security.KeyPair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -9,47 +10,46 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 
 /**
- * Main auto-configuration class for the shared-security library.
- *
- * <p>This class bootstraps common beans (like the JwtProvider) and conditionally imports the
- * appropriate security configuration (Servlet or Reactive) based on the application type.
+ * Main entry point for the security library. Automatically sets up JWT, Password hashing, and
+ * environment-specific security rules.
  */
 @Configuration
 public class SecurityAutoConfiguration {
 
+  /** Creates the component for token generation and verification. */
   @Bean
   @ConditionalOnMissingBean
   public JwtProvider jwtProvider(@Autowired(required = false) KeyPair keyPair) {
     return new JwtProvider(keyPair);
   }
 
+  /** Sets BCrypt as the standard password hashing algorithm. */
   @Bean
   @ConditionalOnMissingBean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
   }
 
-  /**
-   * Only loads if the Servlet API is present. This allows the library to be used in non-web
-   * applications without crashing.
-   */
+  /** Conditionally loads Servlet-based security configuration. */
   @Configuration
   @ConditionalOnClass(name = "jakarta.servlet.DispatcherType")
   @Import(WebSecurityAutoConfiguration.class)
   static class WebSecurityImportConfig {}
 
-  /** Only loads if the Reactive (WebFlux) API is present. */
+  /** Conditionally loads Reactive (WebFlux) security configuration. */
   @Configuration
   @ConditionalOnClass(name = "org.springframework.web.reactive.DispatcherHandler")
   @Import(WebSecurityAutoConfiguration.class)
   static class ReactiveSecurityImportConfig {}
 
-  /** Loads Gateway-specific security components if the Spring Cloud Gateway API is present. */
+  /** Conditionally loads Gateway-specific security components. */
   @Configuration
   @ConditionalOnClass(
       name = "org.springframework.cloud.gateway.filter.factory.GatewayFilterFactory")
@@ -57,8 +57,23 @@ public class SecurityAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AuthenticationFilter authenticationFilter(ReactiveJwtDecoder jwtDecoder) {
-      return new AuthenticationFilter(jwtDecoder);
+    public AuthenticationFilter authenticationFilter(
+        ReactiveJwtDecoder jwtDecoder,
+        @Autowired(required = false) TokenBlacklistManager blacklistManager) {
+      return new AuthenticationFilter(jwtDecoder, blacklistManager);
+    }
+  }
+
+  @Configuration
+  @ConditionalOnClass(name = "org.springframework.data.redis.core.RedisOperations")
+  static class TokenBlacklistAutoConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean(TokenBlacklistManager.class)
+    public TokenBlacklistManager tokenBlacklistManager(
+        @Autowired(required = false) StringRedisTemplate blockingTemplate,
+        @Autowired(required = false) ReactiveStringRedisTemplate reactiveTemplate) {
+      return new TokenBlacklistManager(blockingTemplate, reactiveTemplate);
     }
   }
 }
