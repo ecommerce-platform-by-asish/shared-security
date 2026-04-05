@@ -1,6 +1,6 @@
 package com.ecommerce.security.gateway;
 
-import com.ecommerce.security.jwt.TokenBlacklistManager;
+import com.ecommerce.security.jwt.RedisTokenBlacklistManager;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -20,11 +20,11 @@ public class AuthenticationFilter
     extends AbstractGatewayFilterFactory<AuthenticationFilter.Config> {
 
   private final ReactiveJwtDecoder jwtDecoder;
-  private final TokenBlacklistManager blacklistManager;
+  private final RedisTokenBlacklistManager blacklistManager;
 
   public AuthenticationFilter(
       ReactiveJwtDecoder jwtDecoder,
-      @Autowired(required = false) TokenBlacklistManager blacklistManager) {
+      @Autowired(required = false) RedisTokenBlacklistManager blacklistManager) {
     super(Config.class);
     this.jwtDecoder = jwtDecoder;
     this.blacklistManager = blacklistManager;

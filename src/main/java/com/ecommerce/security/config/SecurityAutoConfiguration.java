@@ -2,7 +2,7 @@ package com.ecommerce.security.config;
 
 import com.ecommerce.security.gateway.AuthenticationFilter;
 import com.ecommerce.security.jwt.JwtProvider;
-import com.ecommerce.security.jwt.TokenBlacklistManager;
+import com.ecommerce.security.jwt.RedisTokenBlacklistManager;
 import java.security.KeyPair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -59,7 +59,7 @@ public class SecurityAutoConfiguration {
     @ConditionalOnMissingBean
     public AuthenticationFilter authenticationFilter(
         ReactiveJwtDecoder jwtDecoder,
-        @Autowired(required = false) TokenBlacklistManager blacklistManager) {
+        @Autowired(required = false) RedisTokenBlacklistManager blacklistManager) {
       return new AuthenticationFilter(jwtDecoder, blacklistManager);
     }
   }
@@ -69,11 +69,11 @@ public class SecurityAutoConfiguration {
   static class TokenBlacklistAutoConfiguration {
 
     @Bean
-    @ConditionalOnMissingBean(TokenBlacklistManager.class)
-    public TokenBlacklistManager tokenBlacklistManager(
+    @ConditionalOnMissingBean(RedisTokenBlacklistManager.class)
+    public RedisTokenBlacklistManager tokenBlacklistManager(
         @Autowired(required = false) StringRedisTemplate blockingTemplate,
         @Autowired(required = false) ReactiveStringRedisTemplate reactiveTemplate) {
-      return new TokenBlacklistManager(blockingTemplate, reactiveTemplate);
+      return new RedisTokenBlacklistManager(blockingTemplate, reactiveTemplate);
     }
   }
 }
