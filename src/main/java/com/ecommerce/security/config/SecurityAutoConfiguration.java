@@ -6,6 +6,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
  * Main auto-configuration class for the shared-security library.
@@ -20,6 +22,12 @@ public class SecurityAutoConfiguration {
   @ConditionalOnMissingBean
   public JwtProvider jwtProvider() {
     return new JwtProvider();
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
   }
 
   /**
