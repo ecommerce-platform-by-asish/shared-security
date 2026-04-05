@@ -1,63 +1,70 @@
 package com.ecommerce.security.gateway;
 
-import com.ecommerce.security.jwt.JwtProvider;
-import io.jsonwebtoken.Claims;
 import lombok.Data;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * Shared Gateway Filter for JWT authentication.
+ * Shared Gateway Filter for JWT authentication, Coarse-Grained Authorization, and Header
+ * Propagation.
  *
- * <p>Validates the Bearer token in the Authorization header and propagates user identity claims as
- * downstream headers (X-User-Id and X-User-Role).
+ * <p>Validates the Bearer token using OAuth2 Resource Server's ReactiveJwtDecoder, optionally
+ * verifies required roles at the edge, and propagates user identity claims as downstream headers.
  */
 public class AuthenticationFilter
     extends AbstractGatewayFilterFactory<AuthenticationFilter.Config> {
 
-  private final JwtProvider jwtProvider;
+  private final ReactiveJwtDecoder jwtDecoder;
 
-  public AuthenticationFilter(JwtProvider jwtProvider) {
+  public AuthenticationFilter(ReactiveJwtDecoder jwtDecoder) {
     super(Config.class);
-    this.jwtProvider = jwtProvider;
+    this.jwtDecoder = jwtDecoder;
   }
 
   @Override
   public GatewayFilter apply(Config config) {
     return (exchange, chain) -> {
       String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
-      if (authHeader == null) {
-        return onError(exchange, "Missing Authorization Header", HttpStatus.UNAUTHORIZED);
+
+      if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        return onError(
+            exchange, "Missing or Invalid Authorization Header", HttpStatus.UNAUTHORIZED);
       }
 
-      if (authHeader.startsWith("Bearer ")) {
-        authHeader = authHeader.substring(7);
-      } else {
-        return onError(exchange, "Invalid Authorization Header", HttpStatus.UNAUTHORIZED);
-      }
+      String token = authHeader.substring(7);
 
-      try {
-        Claims claims = jwtProvider.validateToken(authHeader);
-        String userId = claims.get("id", String.class);
-        String role = claims.get("role", String.class);
+      return jwtDecoder
+          .decode(token)
+          .flatMap(
+              jwt -> {
+                String userId = jwt.getClaimAsString("id");
+                String role = jwt.getClaimAsString("role");
 
-        ServerHttpRequest request =
-            exchange
-                .getRequest()
-                .mutate()
-                .header("X-User-Id", userId)
-                .header("X-User-Role", role)
-                .build();
+                // Coarse-grained Authorization at the Edge
+                if (config.getRequiredRole() != null && !config.getRequiredRole().isBlank()) {
+                  if (role == null || !role.equalsIgnoreCase(config.getRequiredRole())) {
+                    return onError(
+                        exchange, "Insufficient permissions for this route.", HttpStatus.FORBIDDEN);
+                  }
+                }
 
-        return chain.filter(exchange.mutate().request(request).build());
-      } catch (Exception e) {
-        return onError(exchange, "Invalid Token", HttpStatus.UNAUTHORIZED);
-      }
+                ServerHttpRequest request =
+                    exchange
+                        .getRequest()
+                        .mutate()
+                        .header("X-User-Id", userId)
+                        .header("X-User-Role", role)
+                        .build();
+
+                return chain.filter(exchange.mutate().request(request).build());
+              })
+          .onErrorResume(e -> onError(exchange, "Invalid Token", HttpStatus.UNAUTHORIZED));
     };
   }
 
@@ -69,6 +76,10 @@ public class AuthenticationFilter
 
   @Data
   public static class Config {
-    // Add configuration properties if needed
+    /**
+     * Optional role required to access the route. If specified, the filter will verify that the
+     * role claim in the JWT matches this value (case-insensitive).
+     */
+    private String requiredRole;
   }
 }
