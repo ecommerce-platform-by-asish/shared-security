@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -89,8 +90,7 @@ public class WebSecurityAutoConfiguration {
                       .permitAll()
                       .anyExchange()
                       .authenticated())
-          .oauth2ResourceServer(
-              oauth2 -> oauth2.jwt(org.springframework.security.config.Customizer.withDefaults()))
+          .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
           .build();
     }
   }

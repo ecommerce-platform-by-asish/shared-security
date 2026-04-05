@@ -2,6 +2,8 @@ package com.ecommerce.security.config;
 
 import com.ecommerce.security.gateway.AuthenticationFilter;
 import com.ecommerce.security.jwt.JwtProvider;
+import java.security.KeyPair;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -9,6 +11,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 
 /**
  * Main auto-configuration class for the shared-security library.
@@ -21,8 +24,8 @@ public class SecurityAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  public JwtProvider jwtProvider() {
-    return new JwtProvider();
+  public JwtProvider jwtProvider(@Autowired(required = false) KeyPair keyPair) {
+    return new JwtProvider(keyPair);
   }
 
   @Bean
@@ -54,8 +57,8 @@ public class SecurityAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public AuthenticationFilter authenticationFilter(JwtProvider jwtProvider) {
-      return new AuthenticationFilter(jwtProvider);
+    public AuthenticationFilter authenticationFilter(ReactiveJwtDecoder jwtDecoder) {
+      return new AuthenticationFilter(jwtDecoder);
     }
   }
 }
