@@ -8,12 +8,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
  * Custom annotation for ADMIN role authorization.
- * 
+ *
  * <p>Applying this to a controller method or class is equivalent to
  * adding @PreAuthorize("hasRole('ADMIN')").
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @PreAuthorize("hasRole('ADMIN')")
-public @interface IsAdmin {
-}
+public @interface IsAdmin {}
