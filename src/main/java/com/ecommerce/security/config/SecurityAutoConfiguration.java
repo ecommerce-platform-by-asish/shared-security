@@ -1,6 +1,6 @@
 package com.ecommerce.security.config;
 
-import com.ecommerce.security.jwt.JwtTokenValidator;
+import com.ecommerce.security.jwt.JwtProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
@@ -18,8 +18,8 @@ public class SecurityAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  public JwtTokenValidator jwtTokenValidator() {
-    return new JwtTokenValidator();
+  public JwtProvider jwtProvider() {
+    return new JwtProvider();
   }
 
   /**
