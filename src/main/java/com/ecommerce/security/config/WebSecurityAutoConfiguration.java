@@ -53,6 +53,7 @@ public class WebSecurityAutoConfiguration {
                   auth.requestMatchers(
                           "/api/auth/**",
                           "/login",
+                          "/.well-known/**",
                           "/v3/api-docs/**",
                           "/swagger-ui/**",
                           "/actuator/health")
@@ -81,12 +82,15 @@ public class WebSecurityAutoConfiguration {
                       .pathMatchers(
                           "/api/auth/**",
                           "/login",
+                          "/.well-known/**",
                           "/v3/api-docs/**",
                           "/swagger-ui/**",
                           "/actuator/health")
                       .permitAll()
                       .anyExchange()
                       .authenticated())
+          .oauth2ResourceServer(
+              oauth2 -> oauth2.jwt(org.springframework.security.config.Customizer.withDefaults()))
           .build();
     }
   }
