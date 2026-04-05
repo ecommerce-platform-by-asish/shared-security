@@ -42,7 +42,17 @@ public class WebSecurityAutoConfiguration {
       return http.csrf(AbstractHttpConfigurer::disable)
           .sessionManagement(
               session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-          .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+          .authorizeHttpRequests(
+              auth ->
+                  auth.requestMatchers(
+                          "/api/auth/**",
+                          "/login",
+                          "/v3/api-docs/**",
+                          "/swagger-ui/**",
+                          "/actuator/health")
+                      .permitAll()
+                      .anyRequest()
+                      .authenticated())
           .addFilterBefore(userContextFilter, UsernamePasswordAuthenticationFilter.class)
           .build();
     }
