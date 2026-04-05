@@ -50,6 +50,8 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.cloud:spring-cloud-starter-gateway-server-webflux")
     compileOnly("io.projectreactor:reactor-core")
+    compileOnly("org.springframework.boot:spring-boot-starter-data-redis")
+    compileOnly("org.springframework.boot:spring-boot-starter-data-redis-reactive")
 
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")

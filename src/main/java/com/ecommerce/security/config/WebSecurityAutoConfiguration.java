@@ -11,6 +11,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
@@ -21,15 +22,13 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
 
 /**
- * Shared Spring Security configuration for microserivces.
- *
- * <p>Provides both Servlet and Reactive (WebFlux) security configurations to ensure consistent
- * security rules across the entire architecture.
+ * Shared security setup for all services. Automatically configures either Servlet or Reactive
+ * security based on the application type.
  */
 @Configuration
 public class WebSecurityAutoConfiguration {
 
-  /** Configuration for Servlet-based applications. */
+  /** Security setup for standard (Servlet) web applications. */
   @Configuration
   @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
   @Import(SecurityWebMvcConfig.class)
@@ -37,11 +36,13 @@ public class WebSecurityAutoConfiguration {
   @EnableMethodSecurity
   public static class ServletSecurityConfig {
 
+    /** Creates a filter that populates user identity from request headers. */
     @Bean
     public UserContextFilter userContextFilter() {
       return new UserContextFilter();
     }
 
+    /** Defines security rules and disables defaults like CSRF and Logout. */
     @Bean
     @ConditionalOnMissingBean(SecurityFilterChain.class)
     public SecurityFilterChain securityFilterChain(
@@ -49,11 +50,13 @@ public class WebSecurityAutoConfiguration {
       return http.csrf(AbstractHttpConfigurer::disable)
           .sessionManagement(
               session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+          .logout(LogoutConfigurer::disable)
           .authorizeHttpRequests(
               auth ->
                   auth.requestMatchers(
                           "/api/auth/**",
                           "/login",
+                          "/logout",
                           "/.well-known/**",
                           "/v3/api-docs/**",
                           "/swagger-ui/**",
@@ -66,12 +69,13 @@ public class WebSecurityAutoConfiguration {
     }
   }
 
-  /** Configuration for Reactive (WebFlux) applications like the API Gateway. */
+  /** Security setup for Reactive (WebFlux) apps like the API Gateway. */
   @Configuration
   @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
   @EnableWebFluxSecurity
   public static class ReactiveSecurityConfig {
 
+    /** Defines security rules for reactive applications. */
     @Bean
     @ConditionalOnMissingBean(SecurityWebFilterChain.class)
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
