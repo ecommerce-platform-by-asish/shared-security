@@ -7,8 +7,8 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import reactor.core.publisher.Mono;
 
 /**
- * Handles token revocation using Redis. 
- * Supports both blocking and reactive operations in a single manager.
+ * Handles token revocation using Redis. Supports both blocking and reactive operations in a single
+ * manager.
  */
 public class RedisTokenBlacklistManager {
 
@@ -38,7 +38,8 @@ public class RedisTokenBlacklistManager {
       return reactiveRedisTemplate.hasKey("jwt:blacklist:" + jti).defaultIfEmpty(false);
     }
     if (redisTemplate != null) {
-      return Mono.fromCallable(() -> Boolean.TRUE.equals(redisTemplate.hasKey("jwt:blacklist:" + jti)))
+      return Mono.fromCallable(
+              () -> Boolean.TRUE.equals(redisTemplate.hasKey("jwt:blacklist:" + jti)))
           .defaultIfEmpty(false);
     }
     return Mono.just(false);
