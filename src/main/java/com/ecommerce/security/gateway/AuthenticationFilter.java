@@ -1,6 +1,8 @@
 package com.ecommerce.security.gateway;
 
+import com.ecommerce.security.jwt.TokenBlacklistManager;
 import lombok.Data;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
@@ -11,20 +13,21 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /**
- * Shared Gateway Filter for JWT authentication, Coarse-Grained Authorization, and Header
- * Propagation.
- *
- * <p>Validates the Bearer token using OAuth2 Resource Server's ReactiveJwtDecoder, optionally
- * verifies required roles at the edge, and propagates user identity claims as downstream headers.
+ * Security guard for the Gateway. Validates JWT tokens, checks user roles. Forwards user details to
+ * downstream as headers.
  */
 public class AuthenticationFilter
     extends AbstractGatewayFilterFactory<AuthenticationFilter.Config> {
 
   private final ReactiveJwtDecoder jwtDecoder;
+  private final TokenBlacklistManager blacklistManager;
 
-  public AuthenticationFilter(ReactiveJwtDecoder jwtDecoder) {
+  public AuthenticationFilter(
+      ReactiveJwtDecoder jwtDecoder,
+      @Autowired(required = false) TokenBlacklistManager blacklistManager) {
     super(Config.class);
     this.jwtDecoder = jwtDecoder;
+    this.blacklistManager = blacklistManager;
   }
 
   @Override
@@ -33,8 +36,7 @@ public class AuthenticationFilter
       String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
 
       if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-        return onError(
-            exchange, "Missing or Invalid Authorization Header", HttpStatus.UNAUTHORIZED);
+        return onError(exchange, HttpStatus.UNAUTHORIZED);
       }
 
       String token = authHeader.substring(7);
@@ -49,26 +51,43 @@ public class AuthenticationFilter
                 // Coarse-grained Authorization at the Edge
                 if (config.getRequiredRole() != null && !config.getRequiredRole().isBlank()) {
                   if (role == null || !role.equalsIgnoreCase(config.getRequiredRole())) {
-                    return onError(
-                        exchange, "Insufficient permissions for this route.", HttpStatus.FORBIDDEN);
+                    return onError(exchange, HttpStatus.FORBIDDEN);
                   }
                 }
 
-                ServerHttpRequest request =
-                    exchange
-                        .getRequest()
-                        .mutate()
-                        .header("X-User-Id", userId)
-                        .header("X-User-Role", role)
-                        .build();
+                // Redis Revocation Check
+                Mono<Void> processRequest =
+                    Mono.defer(
+                        () -> {
+                          ServerHttpRequest request =
+                              exchange
+                                  .getRequest()
+                                  .mutate()
+                                  .header("X-User-Id", userId)
+                                  .header("X-User-Role", role)
+                                  .build();
+                          return chain.filter(exchange.mutate().request(request).build());
+                        });
 
-                return chain.filter(exchange.mutate().request(request).build());
+                if (blacklistManager != null) {
+                  return blacklistManager
+                      .isBlacklisted(jwt.getId())
+                      .flatMap(
+                          isBlacklisted -> {
+                            if (isBlacklisted) {
+                              return onError(exchange, HttpStatus.UNAUTHORIZED);
+                            }
+                            return processRequest;
+                          });
+                }
+
+                return processRequest;
               })
-          .onErrorResume(e -> onError(exchange, "Invalid Token", HttpStatus.UNAUTHORIZED));
+          .onErrorResume(e -> onError(exchange, HttpStatus.UNAUTHORIZED));
     };
   }
 
-  private Mono<Void> onError(ServerWebExchange exchange, String err, HttpStatus httpStatus) {
+  private Mono<Void> onError(ServerWebExchange exchange, HttpStatus httpStatus) {
     var response = exchange.getResponse();
     response.setStatusCode(httpStatus);
     return response.setComplete();
