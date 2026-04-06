@@ -13,7 +13,6 @@ import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.core.Ordered;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -49,12 +48,13 @@ public class SecurityAutoConfiguration {
     /** Seeds userId into SLF4J MDC for every Servlet request. */
     @Bean
     @ConditionalOnMissingBean
-    public FilterRegistrationBean<MdcUserIdFilter> mdcUserIdFilterRegistration() {
+    public FilterRegistrationBean<MdcUserIdFilter> mdcUserIdFilterRegistration(
+        io.micrometer.tracing.Tracer tracer) {
       FilterRegistrationBean<MdcUserIdFilter> registration = new FilterRegistrationBean<>();
-      registration.setFilter(new MdcUserIdFilter());
+      registration.setFilter(new MdcUserIdFilter(tracer));
       registration.addUrlPatterns("/*");
       // Run after Spring Security (order ~100) so SecurityContext is already populated
-      registration.setOrder(Ordered.LOWEST_PRECEDENCE - 10);
+      registration.setOrder(org.springframework.core.Ordered.LOWEST_PRECEDENCE - 10);
       registration.setName("mdcUserIdFilter");
       return registration;
     }
@@ -69,8 +69,8 @@ public class SecurityAutoConfiguration {
     /** Seeds userId into SLF4J MDC for every reactive request. */
     @Bean
     @ConditionalOnMissingBean
-    public MdcUserIdWebFilter mdcUserIdWebFilter() {
-      return new MdcUserIdWebFilter();
+    public MdcUserIdWebFilter mdcUserIdWebFilter(io.micrometer.tracing.Tracer tracer) {
+      return new MdcUserIdWebFilter(tracer);
     }
   }
 

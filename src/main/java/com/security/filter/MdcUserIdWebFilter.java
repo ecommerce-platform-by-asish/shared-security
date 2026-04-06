@@ -1,6 +1,10 @@
 package com.security.filter;
 
-import org.slf4j.MDC;
+import io.micrometer.tracing.Tracer;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NullMarked;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.web.server.ServerWebExchange;
@@ -8,19 +12,27 @@ import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
-/** Reactive equivalent of MdcUserIdFilter for WebFlux and Gateway apps. */
+/** Reactive equivalent of MdcUserIdFilter using Baggage for MDC synchronization. */
+@Slf4j
+@NullMarked
+@RequiredArgsConstructor
 public class MdcUserIdWebFilter implements WebFilter {
 
-  public static final String MDC_USER_ID_KEY = "userId";
+  private final Tracer tracer;
 
   @Override
   public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
     return ReactiveSecurityContextHolder.getContext()
-        .map(SecurityContext::getAuthentication)
-        .filter(auth -> auth != null && auth.isAuthenticated())
-        .filter(auth -> auth.getPrincipal() instanceof String)
-        .doOnNext(auth -> MDC.put(MDC_USER_ID_KEY, (String) auth.getPrincipal()))
-        .then(chain.filter(exchange))
-        .doFinally(signal -> MDC.remove(MDC_USER_ID_KEY));
+        .filter(ctx -> ctx.getAuthentication() != null && ctx.getAuthentication().isAuthenticated())
+        .doOnNext(
+            ctx -> {
+              Authentication auth = ctx.getAuthentication();
+              if (auth != null && auth.getPrincipal() instanceof String userId) {
+                try (var _ = tracer.createBaggageInScope("userId", userId)) {
+                  log.debug("Found authenticated user: {}. Seeded baggage in scope.", userId);
+                }
+              }
+            })
+        .then(chain.filter(exchange));
   }
 }

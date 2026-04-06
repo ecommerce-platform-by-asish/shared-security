@@ -3,6 +3,7 @@ package com.security.jwt;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import java.security.KeyPair;
+import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
@@ -36,8 +37,8 @@ public class JwtProvider {
         .id(UUID.randomUUID().toString())
         .subject(subject)
         .claims(claims)
-        .issuedAt(new Date())
-        .expiration(new Date(System.currentTimeMillis() + expirationMillis))
+        .issuedAt(Date.from(Instant.now()))
+        .expiration(Date.from(Instant.now().plusMillis(expirationMillis)))
         .signWith(keyPair.getPrivate(), Jwts.SIG.RS256)
         .compact();
   }

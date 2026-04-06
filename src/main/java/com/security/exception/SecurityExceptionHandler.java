@@ -22,7 +22,7 @@ public class SecurityExceptionHandler {
   public ResponseEntity<ApiResponse<Void>> handleUnauthorizedException(
       UnauthorizedException ex, WebRequest request) {
     log.warn("Unauthorized access at path: {}: {}", request.getContextPath(), ex.getMessage());
-    return ResponseEntity.status(ex.getHttpStatus())
+    return ResponseEntity.status(ex.getStatusCode())
         .body(ApiResponse.error(ex.getErrorCode(), ex.getMessage()));
   }
 

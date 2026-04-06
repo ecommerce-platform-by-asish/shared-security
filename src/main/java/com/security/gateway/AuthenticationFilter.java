@@ -7,6 +7,7 @@ import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.web.server.ServerWebExchange;
@@ -84,7 +85,7 @@ public class AuthenticationFilter
     };
   }
 
-  private Mono<Void> onError(ServerWebExchange exchange, HttpStatus httpStatus) {
+  private Mono<Void> onError(ServerWebExchange exchange, HttpStatusCode httpStatus) {
     var response = exchange.getResponse();
     response.setStatusCode(httpStatus);
     return response.setComplete();
