@@ -1,4 +1,4 @@
-package com.security.error;
+package com.security.exception;
 
 import com.common.web.dto.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +31,6 @@ public class SecurityExceptionHandler {
       AccessDeniedException ex, WebRequest request) {
     log.warn("Access denied at path: {}", request.getContextPath());
     return ResponseEntity.status(HttpStatus.FORBIDDEN)
-        .body(ApiResponse.error(AuthErrorCode.FORBIDDEN));
+        .body(ApiResponse.error(AuthStatusCode.FORBIDDEN));
   }
 }

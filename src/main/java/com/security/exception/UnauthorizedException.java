@@ -1,15 +1,15 @@
-package com.security.error;
+package com.security.exception;
 
-import com.common.error.BaseException;
+import com.common.exception.BaseException;
 
 /** Exception thrown when authentication fails. */
 public class UnauthorizedException extends BaseException {
 
   public UnauthorizedException() {
-    super(AuthErrorCode.UNAUTHORIZED);
+    super(AuthStatusCode.UNAUTHORIZED);
   }
 
   public UnauthorizedException(String message) {
-    super(message, AuthErrorCode.UNAUTHORIZED);
+    super(message, AuthStatusCode.UNAUTHORIZED);
   }
 }
