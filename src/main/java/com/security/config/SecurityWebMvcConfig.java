@@ -1,6 +1,6 @@
-package com.ecommerce.security.config;
+package com.security.config;
 
-import com.ecommerce.security.user.CurrentUserArgumentResolver;
+import com.security.user.CurrentUserArgumentResolver;
 import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Configuration;
@@ -8,10 +8,8 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * WebMvcConfigurer that registers the CurrentUserArgumentResolver.
- *
- * <p>This allows controllers to use the @CurrentUser annotation to easily access the authenticated
- * user's ID.
+ * Configures Spring MVC to support security-related features like {@link
+ * com.security.user.CurrentUser}.
  */
 @Configuration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)

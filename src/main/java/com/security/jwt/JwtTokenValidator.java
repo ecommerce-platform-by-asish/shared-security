@@ -1,4 +1,4 @@
-package com.ecommerce.security.jwt;
+package com.security.jwt;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -9,11 +9,7 @@ import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-/**
- * Shared JWT token validator for services that need to verify tokens (e.g. API Gateway).
- *
- * <p>Uses a simple symmetric secret key provided via 'jwt.secret-key' property.
- */
+/** Service for validating JWT tokens used across microservices. */
 @Service
 public class JwtTokenValidator {
 

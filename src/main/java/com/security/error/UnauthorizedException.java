@@ -1,11 +1,8 @@
-package com.ecommerce.security.exception;
+package com.security.error;
 
-import com.ecommerce.common.exception.BaseException;
+import com.common.error.BaseException;
 
-/**
- * Exception thrown when authentication fails. Uses HttpStatus.UNAUTHORIZED and
- * GlobalErrorCode.UNAUTHORIZED.
- */
+/** Exception thrown when authentication fails. */
 public class UnauthorizedException extends BaseException {
 
   public UnauthorizedException() {

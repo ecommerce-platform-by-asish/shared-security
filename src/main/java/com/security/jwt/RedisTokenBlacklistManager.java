@@ -1,26 +1,18 @@
-package com.ecommerce.security.jwt;
+package com.security.jwt;
 
 import java.time.Duration;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import reactor.core.publisher.Mono;
 
-/**
- * Handles token revocation using Redis. Supports both blocking and reactive operations in a single
- * manager.
- */
+/** Manages token blacklisting in Redis to support logout and token revocation. */
+@RequiredArgsConstructor(onConstructor_ = @Autowired(required = false))
 public class RedisTokenBlacklistManager {
 
   private final StringRedisTemplate redisTemplate;
   private final ReactiveStringRedisTemplate reactiveRedisTemplate;
-
-  public RedisTokenBlacklistManager(
-      @Autowired(required = false) StringRedisTemplate redisTemplate,
-      @Autowired(required = false) ReactiveStringRedisTemplate reactiveRedisTemplate) {
-    this.redisTemplate = redisTemplate;
-    this.reactiveRedisTemplate = reactiveRedisTemplate;
-  }
 
   /** Adds a token ID to the Redis blacklist. */
   public void blacklist(String jti, Duration timeToLive) {

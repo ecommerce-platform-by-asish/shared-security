@@ -1,6 +1,6 @@
-package com.ecommerce.security.config;
+package com.security.config;
 
-import com.ecommerce.security.filter.UserContextFilter;
+import com.security.filter.UserContextFilter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
@@ -21,10 +21,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
 
-/**
- * Shared security setup for all services. Automatically configures either Servlet or Reactive
- * security based on the application type.
- */
+/** Shared web security rules for all microservices, supporting both Servlet and Reactive apps. */
 @Configuration
 public class WebSecurityAutoConfiguration {
 

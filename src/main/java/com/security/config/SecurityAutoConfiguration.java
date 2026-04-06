@@ -1,15 +1,19 @@
-package com.ecommerce.security.config;
+package com.security.config;
 
-import com.ecommerce.security.gateway.AuthenticationFilter;
-import com.ecommerce.security.jwt.JwtProvider;
-import com.ecommerce.security.jwt.RedisTokenBlacklistManager;
+import com.security.filter.MdcUserIdFilter;
+import com.security.filter.MdcUserIdWebFilter;
+import com.security.gateway.AuthenticationFilter;
+import com.security.jwt.JwtProvider;
+import com.security.jwt.RedisTokenBlacklistManager;
 import java.security.KeyPair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.Ordered;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -17,8 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 
 /**
- * Main entry point for the security library. Automatically sets up JWT, Password hashing, and
- * environment-specific security rules.
+ * Core security auto-configuration providing JWT support, password encoding, and logging filters.
  */
 @Configuration
 public class SecurityAutoConfiguration {
@@ -41,13 +44,35 @@ public class SecurityAutoConfiguration {
   @Configuration
   @ConditionalOnClass(name = "jakarta.servlet.DispatcherType")
   @Import(WebSecurityAutoConfiguration.class)
-  static class WebSecurityImportConfig {}
+  static class WebSecurityImportConfig {
+
+    /** Seeds userId into SLF4J MDC for every Servlet request. */
+    @Bean
+    @ConditionalOnMissingBean
+    public FilterRegistrationBean<MdcUserIdFilter> mdcUserIdFilterRegistration() {
+      FilterRegistrationBean<MdcUserIdFilter> registration = new FilterRegistrationBean<>();
+      registration.setFilter(new MdcUserIdFilter());
+      registration.addUrlPatterns("/*");
+      // Run after Spring Security (order ~100) so SecurityContext is already populated
+      registration.setOrder(Ordered.LOWEST_PRECEDENCE - 10);
+      registration.setName("mdcUserIdFilter");
+      return registration;
+    }
+  }
 
   /** Conditionally loads Reactive (WebFlux) security configuration. */
   @Configuration
   @ConditionalOnClass(name = "org.springframework.web.reactive.DispatcherHandler")
   @Import(WebSecurityAutoConfiguration.class)
-  static class ReactiveSecurityImportConfig {}
+  static class ReactiveSecurityImportConfig {
+
+    /** Seeds userId into SLF4J MDC for every reactive request. */
+    @Bean
+    @ConditionalOnMissingBean
+    public MdcUserIdWebFilter mdcUserIdWebFilter() {
+      return new MdcUserIdWebFilter();
+    }
+  }
 
   /** Conditionally loads Gateway-specific security components. */
   @Configuration

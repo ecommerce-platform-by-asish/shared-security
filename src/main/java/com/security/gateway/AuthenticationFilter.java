@@ -1,6 +1,6 @@
-package com.ecommerce.security.gateway;
+package com.security.gateway;
 
-import com.ecommerce.security.jwt.RedisTokenBlacklistManager;
+import com.security.jwt.RedisTokenBlacklistManager;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -12,10 +12,7 @@ import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-/**
- * Security guard for the Gateway. Validates JWT tokens, checks user roles. Forwards user details to
- * downstream as headers.
- */
+/** Gateway security filter for JWT validation and identity propagation. */
 public class AuthenticationFilter
     extends AbstractGatewayFilterFactory<AuthenticationFilter.Config> {
 

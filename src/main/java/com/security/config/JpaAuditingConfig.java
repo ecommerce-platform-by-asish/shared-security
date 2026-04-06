@@ -1,18 +1,13 @@
-package com.ecommerce.security.config;
+package com.security.config;
 
-import com.ecommerce.security.audit.AuditorAwareImpl;
+import com.security.audit.AuditorAwareImpl;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
-/**
- * Shared JPA auditing configuration.
- *
- * <p>Uses a double-guarded nested configuration to ensure no JPA-specific annotations from Spring
- * Data JPA are processed in non-JPA environments like the api-gateway.
- */
+/** Shared JPA auditing configuration that safely handles non-JPA environments. */
 @Configuration
 @ConditionalOnClass(name = "org.springframework.data.jpa.repository.config.EnableJpaAuditing")
 public class JpaAuditingConfig {

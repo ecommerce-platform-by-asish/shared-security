@@ -1,9 +1,10 @@
-package com.ecommerce.security.exception;
+package com.security.error;
 
-import com.ecommerce.common.exception.ErrorCode;
+import com.common.error.ErrorCode;
 import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
+/** Error codes specifically for security and authentication failures. */
 @Getter
 public enum AuthErrorCode implements ErrorCode {
   UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Invalid email or password"),

@@ -5,8 +5,9 @@ plugins {
     id("com.diffplug.spotless") version "8.4.0"
 }
 
-group = "com.ecommerce"
+group = "com.common"
 version = "1.0.0-SNAPSHOT"
+description = "Common security infrastructure including JWT, AuthZ filters, and auditing for microservices."
 
 java {
     toolchain {
@@ -41,7 +42,7 @@ dependencyManagement {
 dependencies {
     api("org.springframework.boot:spring-boot-starter-security")
     api("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
-    api("com.ecommerce:shared-common:1.0.0-SNAPSHOT")
+    api("com.common:shared-common:1.0.0-SNAPSHOT")
     api("io.jsonwebtoken:jjwt-api:0.12.6")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")

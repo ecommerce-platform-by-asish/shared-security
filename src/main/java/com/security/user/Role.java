@@ -1,5 +1,6 @@
-package com.ecommerce.security.user;
+package com.security.user;
 
+/** Standard user roles for the platform. */
 public enum Role {
   ADMIN,
   USER,

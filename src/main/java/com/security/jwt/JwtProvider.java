@@ -1,4 +1,4 @@
-package com.ecommerce.security.jwt;
+package com.security.jwt;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -6,21 +6,23 @@ import java.security.KeyPair;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+/** Provides functionality for generating and extracting JWT tokens. */
 @Service
+@RequiredArgsConstructor(onConstructor_ = @Autowired(required = false))
 public class JwtProvider {
 
   @Value("${jwt.expiration-ms:86400000}")
   private long expirationMillis;
 
-  private final KeyPair keyPair;
+  @Value("${jwt.key-id:common-auth-key-1}")
+  private String keyId;
 
-  public JwtProvider(@Autowired(required = false) KeyPair keyPair) {
-    this.keyPair = keyPair;
-  }
+  private final KeyPair keyPair;
 
   public String generateToken(String subject, Map<String, Object> claims) {
     if (keyPair == null) {
@@ -29,7 +31,7 @@ public class JwtProvider {
 
     return Jwts.builder()
         .header()
-        .keyId("ecommerce-key-1")
+        .keyId(keyId)
         .and()
         .id(UUID.randomUUID().toString())
         .subject(subject)

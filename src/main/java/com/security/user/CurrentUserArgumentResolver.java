@@ -1,4 +1,4 @@
-package com.ecommerce.security.user;
+package com.security.user;
 
 import org.jspecify.annotations.NonNull;
 import org.springframework.core.MethodParameter;
@@ -8,12 +8,7 @@ import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
-/**
- * Resolver for the @CurrentUser annotation.
- *
- * <p>This class extracts the authenticated user's ID from the SecurityContext and injects it into
- * any controller parameter annotated with @CurrentUser.
- */
+/** Resolves controller method parameters annotated with {@link CurrentUser}. */
 public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolver {
 
   @Override
