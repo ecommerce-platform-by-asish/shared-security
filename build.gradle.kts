@@ -5,8 +5,9 @@ plugins {
     id("com.diffplug.spotless") version "8.4.0"
 }
 
-group = "com.ecommerce"
+group = "com.common"
 version = "1.0.0-SNAPSHOT"
+description = "Common security infrastructure including JWT, AuthZ filters, and auditing for microservices."
 
 java {
     toolchain {
@@ -16,6 +17,7 @@ java {
 }
 
 repositories {
+    mavenLocal()
     mavenCentral()
     maven { url = uri("https://repo.spring.io/milestone") }
 }
@@ -28,7 +30,6 @@ spotless {
 
 val springBootVersion = "4.0.5"
 val springCloudVersion = "2025.1.1"
-val springDocVersion = "2.8.6"
 
 dependencyManagement {
     imports {
@@ -39,19 +40,27 @@ dependencyManagement {
 
 dependencies {
     api("org.springframework.boot:spring-boot-starter-security")
-    api("io.jsonwebtoken:jjwt-api:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.12.6")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.12.6")
+    api("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    api("com.common:shared-common:1.0.0-SNAPSHOT")
+    api("io.jsonwebtoken:jjwt-api:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
+    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     compileOnly("org.springframework.boot:spring-boot-starter-webflux")
     compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
     compileOnly("org.springframework.cloud:spring-cloud-starter-gateway-server-webflux")
     compileOnly("io.projectreactor:reactor-core")
+    compileOnly("org.springframework.boot:spring-boot-starter-data-redis")
+    compileOnly("org.springframework.boot:spring-boot-starter-data-redis-reactive")
 
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")
+}
+
+tasks.withType<JavaCompile> {
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-serial", "-Xlint:-processing"))
 }
 
 publishing {

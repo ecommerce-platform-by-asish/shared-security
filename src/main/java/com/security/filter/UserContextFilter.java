@@ -1,4 +1,4 @@
-package com.ecommerce.security.filter;
+package com.security.filter;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -6,23 +6,19 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
+import org.slf4j.MDC;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-/**
- * Filter that populates the Spring SecurityContext using trusted identity headers.
- *
- * <p>This filter reads headers like X-User-Id and X-User-Role and converts them into an
- * Authentication object in the SecurityContext, enabling method-level authorization in
- * microservices downstream from the Gateway.
- */
+/** Populates Spring Security context from incoming user identity headers. */
 public class UserContextFilter extends OncePerRequestFilter {
 
   public static final String USER_ID_HEADER = "X-User-Id";
   public static final String USER_ROLE_HEADER = "X-User-Role";
 
+  /** Extracts user ID and roles from request headers to set the Spring Security Authentication. */
   @Override
   protected void doFilterInternal(
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -41,8 +37,15 @@ public class UserContextFilter extends OncePerRequestFilter {
 
       var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
       SecurityContextHolder.getContext().setAuthentication(authentication);
+
+      // Seed userId into MDC so every downstream log line includes it automatically
+      MDC.put("userId", userId);
     }
 
-    filterChain.doFilter(request, response);
+    try {
+      filterChain.doFilter(request, response);
+    } finally {
+      MDC.remove("userId");
+    }
   }
 }

@@ -1,15 +1,10 @@
-package com.ecommerce.security.audit;
+package com.security.audit;
 
 import java.util.Optional;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-/**
- * Shared JPA auditor aware implementation.
- *
- * <p>This class extracts the authenticated user's ID from the Spring SecurityContext and returns it
- * as the auditor (the person who created or modified a record).
- */
+/** Provides the currently authenticated user's ID as the auditor for JPA. */
 public class AuditorAwareImpl implements AuditorAware<String> {
 
   @Override
@@ -18,7 +13,7 @@ public class AuditorAwareImpl implements AuditorAware<String> {
     if (authentication == null
         || !authentication.isAuthenticated()
         || authentication.getName() == null) {
-      return Optional.of("system");
+      return Optional.of("anonymous");
     }
     return Optional.of(authentication.getName());
   }
