@@ -4,6 +4,7 @@ import io.micrometer.tracing.Tracer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.web.server.ServerWebExchange;
@@ -17,7 +18,7 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class MdcUserIdWebFilter implements WebFilter {
 
-  private final Tracer tracer;
+  private final @Nullable Tracer tracer;
 
   @Override
   public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
@@ -26,7 +27,7 @@ public class MdcUserIdWebFilter implements WebFilter {
         .doOnNext(
             ctx -> {
               Authentication auth = ctx.getAuthentication();
-              if (auth != null && auth.getPrincipal() instanceof String userId) {
+              if (tracer != null && auth != null && auth.getPrincipal() instanceof String userId) {
                 try (var _ = tracer.createBaggageInScope("userId", userId)) {
                   log.debug("Found authenticated user: {}. Seeded baggage in scope.", userId);
                 }

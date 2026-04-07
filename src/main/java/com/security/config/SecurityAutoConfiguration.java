@@ -10,6 +10,7 @@ import java.security.KeyPair;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -53,6 +54,7 @@ public class SecurityAutoConfiguration {
 
     /** Seeds userId into SLF4J MDC for every Servlet request. */
     @Bean
+    @ConditionalOnBean(Tracer.class)
     @ConditionalOnMissingBean
     public FilterRegistrationBean<MdcUserIdFilter> mdcUserIdFilterRegistration(
         ObjectProvider<Tracer> tracerProvider) {
@@ -75,6 +77,7 @@ public class SecurityAutoConfiguration {
 
     /** Seeds userId into SLF4J MDC for every reactive request. */
     @Bean
+    @ConditionalOnBean(Tracer.class)
     @ConditionalOnMissingBean
     public MdcUserIdWebFilter mdcUserIdWebFilter(ObjectProvider<Tracer> tracerProvider) {
       return new MdcUserIdWebFilter(tracerProvider.getIfAvailable());

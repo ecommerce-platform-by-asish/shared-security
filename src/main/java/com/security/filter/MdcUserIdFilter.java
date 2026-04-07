@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -17,7 +18,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class MdcUserIdFilter extends OncePerRequestFilter {
 
   public static final String USER_ID_KEY = "userId";
-  private final Tracer tracer;
+  private final @Nullable Tracer tracer;
 
   @Override
   protected void doFilterInternal(
@@ -26,7 +27,10 @@ public class MdcUserIdFilter extends OncePerRequestFilter {
       @NonNull FilterChain filterChain)
       throws ServletException, IOException {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-    if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof String userId) {
+    if (tracer != null
+        && auth != null
+        && auth.isAuthenticated()
+        && auth.getPrincipal() instanceof String userId) {
       try (var _ = tracer.createBaggageInScope(USER_ID_KEY, userId)) {
         filterChain.doFilter(request, response);
       }
