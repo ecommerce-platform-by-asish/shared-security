@@ -1,4 +1,4 @@
-package com.security.user;
+package com.app.security.user;
 
 /** Standard user roles for the platform. */
 public enum Role {

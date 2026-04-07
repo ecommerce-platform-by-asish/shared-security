@@ -1,6 +1,6 @@
-package com.security.exception;
+package com.app.security.exception;
 
-import com.common.web.dto.ApiResponse;
+import com.app.common.web.dto.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.core.annotation.Order;

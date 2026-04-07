@@ -1,6 +1,6 @@
-package com.security.exception;
+package com.app.security.exception;
 
-import com.common.exception.StatusCode;
+import com.app.common.exception.StatusCode;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;

@@ -1,6 +1,6 @@
-package com.security.exception;
+package com.app.security.exception;
 
-import com.common.exception.BaseException;
+import com.app.common.exception.BaseException;
 import java.io.Serial;
 
 /** Exception thrown when authentication fails. */

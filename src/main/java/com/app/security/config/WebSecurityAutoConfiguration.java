@@ -1,6 +1,6 @@
-package com.security.config;
+package com.app.security.config;
 
-import com.security.filter.UserContextFilter;
+import com.app.security.filter.UserContextFilter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;

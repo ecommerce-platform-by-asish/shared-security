@@ -1,4 +1,4 @@
-package com.security.user;
+package com.app.security.user;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

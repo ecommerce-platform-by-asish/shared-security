@@ -1,6 +1,6 @@
-package com.security.gateway;
+package com.app.security.gateway;
 
-import com.security.jwt.RedisTokenBlacklistManager;
+import com.app.security.jwt.RedisTokenBlacklistManager;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
