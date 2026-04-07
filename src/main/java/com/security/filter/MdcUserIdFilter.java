@@ -1,6 +1,5 @@
 package com.security.filter;
 
-import io.micrometer.tracing.BaggageInScope;
 import io.micrometer.tracing.Tracer;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -22,7 +21,9 @@ public class MdcUserIdFilter extends OncePerRequestFilter {
 
   @Override
   protected void doFilterInternal(
-          @NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
+      @NonNull HttpServletRequest request,
+      @NonNull HttpServletResponse response,
+      @NonNull FilterChain filterChain)
       throws ServletException, IOException {
     Authentication auth = SecurityContextHolder.getContext().getAuthentication();
     if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof String userId) {

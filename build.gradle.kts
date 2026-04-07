@@ -30,7 +30,6 @@ spotless {
 
 val springBootVersion = "4.0.5"
 val springCloudVersion = "2025.1.1"
-val springDocVersion = "2.8.6"
 
 dependencyManagement {
     imports {
@@ -42,7 +41,7 @@ dependencyManagement {
 dependencies {
     api("org.springframework.boot:spring-boot-starter-security")
     api("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
-    api("com.common:shared-common:1.0.0-SNAPSHOT")
+    api("com.common:shared-common:1.0.8-SNAPSHOT")
     api("io.jsonwebtoken:jjwt-api:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
@@ -58,6 +57,11 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok")
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")
+}
+
+tasks.withType<JavaCompile> {
+    options.compilerArgs.add("-Xlint:all")
+    options.compilerArgs.add("-Xlint:-processing")
 }
 
 publishing {

@@ -5,8 +5,11 @@ import com.security.filter.MdcUserIdWebFilter;
 import com.security.gateway.AuthenticationFilter;
 import com.security.jwt.JwtProvider;
 import com.security.jwt.RedisTokenBlacklistManager;
+import io.micrometer.tracing.Tracer;
 import java.security.KeyPair;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
@@ -23,6 +26,9 @@ import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
  * Core security auto-configuration providing JWT support, password encoding, and logging filters.
  */
 @Configuration
+@AutoConfigureAfter(
+    name =
+        "org.springframework.boot.actuate.autoconfigure.tracing.MicrometerTracingAutoConfiguration")
 public class SecurityAutoConfiguration {
 
   /** Creates the component for token generation and verification. */
@@ -49,7 +55,8 @@ public class SecurityAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public FilterRegistrationBean<MdcUserIdFilter> mdcUserIdFilterRegistration(
-        io.micrometer.tracing.Tracer tracer) {
+        ObjectProvider<Tracer> tracerProvider) {
+      Tracer tracer = tracerProvider.getIfAvailable();
       FilterRegistrationBean<MdcUserIdFilter> registration = new FilterRegistrationBean<>();
       registration.setFilter(new MdcUserIdFilter(tracer));
       registration.addUrlPatterns("/*");
@@ -69,8 +76,8 @@ public class SecurityAutoConfiguration {
     /** Seeds userId into SLF4J MDC for every reactive request. */
     @Bean
     @ConditionalOnMissingBean
-    public MdcUserIdWebFilter mdcUserIdWebFilter(io.micrometer.tracing.Tracer tracer) {
-      return new MdcUserIdWebFilter(tracer);
+    public MdcUserIdWebFilter mdcUserIdWebFilter(ObjectProvider<Tracer> tracerProvider) {
+      return new MdcUserIdWebFilter(tracerProvider.getIfAvailable());
     }
   }
 
