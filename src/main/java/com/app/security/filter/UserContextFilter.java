@@ -26,14 +26,16 @@ public class UserContextFilter extends OncePerRequestFilter {
     String userId = request.getHeader(USER_ID_HEADER);
     String role = request.getHeader(USER_ROLE_HEADER);
 
-    if (userId != null && role != null) {
+    if (userId != null) {
       var authorities =
-          Arrays.stream(role.split(","))
-              .map(String::trim)
-              .map(String::toUpperCase)
-              .map(r -> r.startsWith("ROLE_") ? r : "ROLE_" + r)
-              .map(SimpleGrantedAuthority::new)
-              .toList();
+          role != null
+              ? Arrays.stream(role.split(","))
+                  .map(String::trim)
+                  .map(String::toUpperCase)
+                  .map(r -> r.startsWith("ROLE_") ? r : "ROLE_" + r)
+                  .map(SimpleGrantedAuthority::new)
+                  .toList()
+              : java.util.Collections.<SimpleGrantedAuthority>emptyList();
 
       var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
       SecurityContextHolder.getContext().setAuthentication(authentication);

@@ -67,19 +67,51 @@ public class AuthenticationFilter
                           return chain.filter(exchange.mutate().request(request).build());
                         });
 
+                Mono<Void> authenticatedFlow;
                 if (blacklistManager != null) {
-                  return blacklistManager
-                      .isBlacklisted(jwt.getId())
-                      .flatMap(
-                          isBlacklisted -> {
-                            if (isBlacklisted) {
-                              return onError(exchange, HttpStatus.UNAUTHORIZED);
-                            }
-                            return processRequest;
-                          });
+                  authenticatedFlow =
+                      blacklistManager
+                          .isBlacklisted(jwt.getId())
+                          .flatMap(
+                              isBlacklisted -> {
+                                if (isBlacklisted) {
+                                  return onError(exchange, HttpStatus.UNAUTHORIZED);
+                                }
+                                return processRequest;
+                              });
+                } else {
+                  authenticatedFlow = processRequest;
                 }
 
-                return processRequest;
+                // Seed userId into tracing baggage so it's picked up by Logback automatically
+                return Mono.deferContextual(
+                        ctx -> {
+                          if (ctx.hasKey(io.micrometer.tracing.Tracer.class)) {
+                            io.micrometer.tracing.Tracer tracer =
+                                ctx.get(io.micrometer.tracing.Tracer.class);
+                            tracer.createBaggage("userId", userId);
+                          }
+
+                          // Wrap in security context so MdcUserIdWebFilter or other security-aware
+                          // components can see it
+                          var authorities =
+                              role != null
+                                  ? java.util.List.of(
+                                      new org.springframework.security.core.authority
+                                          .SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                                  : java.util.List
+                                      .<org.springframework.security.core.authority
+                                              .SimpleGrantedAuthority>
+                                          of();
+                          var auth =
+                              new org.springframework.security.authentication
+                                  .UsernamePasswordAuthenticationToken(userId, null, authorities);
+
+                          return authenticatedFlow.contextWrite(
+                              org.springframework.security.core.context
+                                  .ReactiveSecurityContextHolder.withAuthentication(auth));
+                        })
+                    .onErrorResume(e -> onError(exchange, HttpStatus.UNAUTHORIZED));
               })
           .onErrorResume(e -> onError(exchange, HttpStatus.UNAUTHORIZED));
     };

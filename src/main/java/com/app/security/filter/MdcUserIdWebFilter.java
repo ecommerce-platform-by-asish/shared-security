@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -23,16 +22,23 @@ public class MdcUserIdWebFilter implements WebFilter {
   @Override
   public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
     return ReactiveSecurityContextHolder.getContext()
-        .filter(ctx -> ctx.getAuthentication() != null && ctx.getAuthentication().isAuthenticated())
-        .doOnNext(
-            ctx -> {
-              Authentication auth = ctx.getAuthentication();
-              if (tracer != null && auth != null && auth.getPrincipal() instanceof String userId) {
-                try (var _ = tracer.createBaggageInScope("userId", userId)) {
-                  log.debug("Found authenticated user: {}. Seeded baggage in scope.", userId);
-                }
+        .map(ctx -> java.util.Optional.ofNullable(ctx.getAuthentication()))
+        .defaultIfEmpty(java.util.Optional.empty())
+        .flatMap(
+            optAuth -> {
+              if (optAuth.isPresent()
+                  && optAuth.get().isAuthenticated()
+                  && tracer != null
+                  && optAuth.get().getPrincipal() instanceof String userId) {
+                return Mono.using(
+                    () -> tracer.createBaggageInScope("userId", userId),
+                    _ -> {
+                      log.debug("Seeded baggage for authenticated user: {}", userId);
+                      return chain.filter(exchange);
+                    },
+                    io.micrometer.tracing.BaggageInScope::close);
               }
-            })
-        .then(chain.filter(exchange));
+              return chain.filter(exchange);
+            });
   }
 }

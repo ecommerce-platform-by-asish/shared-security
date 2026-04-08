@@ -1,5 +1,6 @@
 package com.app.security.config;
 
+import com.app.security.exception.RsaException;
 import com.app.security.filter.MdcUserIdFilter;
 import com.app.security.filter.MdcUserIdWebFilter;
 import com.app.security.gateway.AuthenticationFilter;
@@ -7,6 +8,8 @@ import com.app.security.jwt.JwtProvider;
 import com.app.security.jwt.RedisTokenBlacklistManager;
 import io.micrometer.tracing.Tracer;
 import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPublicKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.ObjectProvider;
@@ -16,6 +19,7 @@ import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -61,7 +65,6 @@ public class SecurityAutoConfiguration {
 
     /** Seeds userId into SLF4J MDC for every Servlet request. */
     @Bean
-    @ConditionalOnBean(Tracer.class)
     @ConditionalOnMissingBean
     public FilterRegistrationBean<MdcUserIdFilter> mdcUserIdFilterRegistration(
         ObjectProvider<Tracer> tracerProvider) {
@@ -85,7 +88,6 @@ public class SecurityAutoConfiguration {
 
     /** Seeds userId into SLF4J MDC for every reactive request. */
     @Bean
-    @ConditionalOnBean(Tracer.class)
     @ConditionalOnMissingBean
     public MdcUserIdWebFilter mdcUserIdWebFilter(ObjectProvider<Tracer> tracerProvider) {
       return new MdcUserIdWebFilter(tracerProvider.getIfAvailable());
@@ -102,17 +104,21 @@ public class SecurityAutoConfiguration {
     @ConditionalOnMissingBean
     public ReactiveJwtDecoder reactiveJwtDecoder(
         @Value("${jwt.secret-key:}") String secretKey,
+        @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri:}") String jwkSetUri,
         @Autowired(required = false) KeyPair keyPair) {
       if (secretKey != null && !secretKey.isBlank()) {
         return NimbusReactiveJwtDecoder.withSecretKey(
                 new SecretKeySpec(secretKey.getBytes(), "HmacSHA256"))
             .build();
       }
+      if (jwkSetUri != null && !jwkSetUri.isBlank()) {
+        return NimbusReactiveJwtDecoder.withJwkSetUri(jwkSetUri).build();
+      }
       if (keyPair != null && keyPair.getPublic() instanceof RSAPublicKey) {
         return NimbusReactiveJwtDecoder.withPublicKey((RSAPublicKey) keyPair.getPublic()).build();
       }
       throw new IllegalStateException(
-          "Neither jwt.secret-key nor RSA KeyPair provided for ReactiveJwtDecoder");
+          "Neither jwt.secret-key, spring.security.oauth2.resourceserver.jwt.jwk-set-uri, nor RSA KeyPair provided for ReactiveJwtDecoder");
     }
 
     @Bean
@@ -134,6 +140,27 @@ public class SecurityAutoConfiguration {
         @Autowired(required = false) StringRedisTemplate blockingTemplate,
         @Autowired(required = false) ReactiveStringRedisTemplate reactiveTemplate) {
       return new RedisTokenBlacklistManager(blockingTemplate, reactiveTemplate);
+    }
+  }
+
+  /** Configuration for generating RSA KeyPairs for development or test environments. */
+  @Configuration
+  @ConditionalOnProperty(
+      name = "shared.security.rsa.generate",
+      havingValue = "true",
+      matchIfMissing = true)
+  static class RsaKeyGenerationConfig {
+
+    @Bean
+    @ConditionalOnMissingBean
+    public KeyPair rsaKeyPair() {
+      try {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        return generator.generateKeyPair();
+      } catch (NoSuchAlgorithmException e) {
+        throw new RsaException("Failed to generate RSA KeyPair", e);
+      }
     }
   }
 }
