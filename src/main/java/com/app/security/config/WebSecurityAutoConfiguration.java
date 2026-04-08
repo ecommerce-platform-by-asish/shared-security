@@ -1,6 +1,8 @@
 package com.app.security.config;
 
 import com.app.security.filter.UserContextFilter;
+import io.micrometer.tracing.Tracer;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Bean;
@@ -35,8 +37,8 @@ public class WebSecurityAutoConfiguration {
 
     /** Creates a filter that populates user identity from request headers. */
     @Bean
-    public UserContextFilter userContextFilter() {
-      return new UserContextFilter();
+    public UserContextFilter userContextFilter(ObjectProvider<Tracer> tracerProvider) {
+      return new UserContextFilter(tracerProvider.getIfAvailable());
     }
 
     /** Defines security rules and disables defaults like CSRF and Logout. */
