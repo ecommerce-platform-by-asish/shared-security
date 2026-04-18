@@ -4,4 +4,3 @@ plugins {
 }
 
 rootProject.name = "shared-security"
-include()

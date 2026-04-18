@@ -1,4 +1,4 @@
-package com.security.jwt;
+package com.app.security.jwt;
 
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;

@@ -1,6 +1,8 @@
-package com.security.gateway;
+package com.app.security.gateway;
 
-import com.security.jwt.RedisTokenBlacklistManager;
+import com.app.security.jwt.RedisTokenBlacklistManager;
+import io.micrometer.tracing.Tracer;
+import java.util.List;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -9,6 +11,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -67,19 +72,44 @@ public class AuthenticationFilter
                           return chain.filter(exchange.mutate().request(request).build());
                         });
 
+                Mono<Void> authenticatedFlow;
                 if (blacklistManager != null) {
-                  return blacklistManager
-                      .isBlacklisted(jwt.getId())
-                      .flatMap(
-                          isBlacklisted -> {
-                            if (isBlacklisted) {
-                              return onError(exchange, HttpStatus.UNAUTHORIZED);
-                            }
-                            return processRequest;
-                          });
+                  authenticatedFlow =
+                      blacklistManager
+                          .isBlacklisted(jwt.getId())
+                          .flatMap(
+                              isBlacklisted -> {
+                                if (isBlacklisted) {
+                                  return onError(exchange, HttpStatus.UNAUTHORIZED);
+                                }
+                                return processRequest;
+                              });
+                } else {
+                  authenticatedFlow = processRequest;
                 }
 
-                return processRequest;
+                // Seed userId into tracing baggage so it's picked up by Logback automatically
+                return Mono.deferContextual(
+                        ctx -> {
+                          if (ctx.hasKey(Tracer.class)) {
+                            Tracer tracer = ctx.get(Tracer.class);
+                            tracer.createBaggage("userId", userId);
+                          }
+
+                          // Wrap in security context so MdcUserIdWebFilter or other security-aware
+                          // components can see it
+                          var authorities =
+                              role != null
+                                  ? List.of(
+                                      new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                                  : List.<SimpleGrantedAuthority>of();
+                          var auth =
+                              new UsernamePasswordAuthenticationToken(userId, null, authorities);
+
+                          return authenticatedFlow.contextWrite(
+                              ReactiveSecurityContextHolder.withAuthentication(auth));
+                        })
+                    .onErrorResume(e -> onError(exchange, HttpStatus.UNAUTHORIZED));
               })
           .onErrorResume(e -> onError(exchange, HttpStatus.UNAUTHORIZED));
     };

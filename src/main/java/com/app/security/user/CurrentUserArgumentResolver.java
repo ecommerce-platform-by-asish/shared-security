@@ -1,4 +1,4 @@
-package com.security.user;
+package com.app.security.user;
 
 import org.jspecify.annotations.NonNull;
 import org.springframework.core.MethodParameter;

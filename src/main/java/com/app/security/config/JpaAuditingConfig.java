@@ -1,6 +1,6 @@
-package com.security.config;
+package com.app.security.config;
 
-import com.security.audit.AuditorAwareImpl;
+import com.app.security.audit.AuditorAwareImpl;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

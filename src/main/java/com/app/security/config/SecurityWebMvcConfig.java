@@ -1,6 +1,6 @@
-package com.security.config;
+package com.app.security.config;
 
-import com.security.user.CurrentUserArgumentResolver;
+import com.app.security.user.CurrentUserArgumentResolver;
 import java.util.List;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.context.annotation.Configuration;
@@ -9,7 +9,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
  * Configures Spring MVC to support security-related features like {@link
- * com.security.user.CurrentUser}.
+ * com.app.security.user.CurrentUser}.
  */
 @Configuration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
