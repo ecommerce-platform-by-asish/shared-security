@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -41,7 +42,7 @@ public class UserContextFilter extends OncePerRequestFilter {
                   .map(r -> r.startsWith("ROLE_") ? r : "ROLE_" + r)
                   .map(SimpleGrantedAuthority::new)
                   .toList()
-              : java.util.Collections.<SimpleGrantedAuthority>emptyList();
+              : List.<SimpleGrantedAuthority>of();
 
       var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
       SecurityContextHolder.getContext().setAuthentication(authentication);

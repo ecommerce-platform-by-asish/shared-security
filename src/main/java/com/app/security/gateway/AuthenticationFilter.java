@@ -1,6 +1,8 @@
 package com.app.security.gateway;
 
 import com.app.security.jwt.RedisTokenBlacklistManager;
+import io.micrometer.tracing.Tracer;
+import java.util.List;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
@@ -9,6 +11,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -86,9 +91,8 @@ public class AuthenticationFilter
                 // Seed userId into tracing baggage so it's picked up by Logback automatically
                 return Mono.deferContextual(
                         ctx -> {
-                          if (ctx.hasKey(io.micrometer.tracing.Tracer.class)) {
-                            io.micrometer.tracing.Tracer tracer =
-                                ctx.get(io.micrometer.tracing.Tracer.class);
+                          if (ctx.hasKey(Tracer.class)) {
+                            Tracer tracer = ctx.get(Tracer.class);
                             tracer.createBaggage("userId", userId);
                           }
 
@@ -96,20 +100,14 @@ public class AuthenticationFilter
                           // components can see it
                           var authorities =
                               role != null
-                                  ? java.util.List.of(
-                                      new org.springframework.security.core.authority
-                                          .SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-                                  : java.util.List
-                                      .<org.springframework.security.core.authority
-                                              .SimpleGrantedAuthority>
-                                          of();
+                                  ? List.of(
+                                      new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                                  : List.<SimpleGrantedAuthority>of();
                           var auth =
-                              new org.springframework.security.authentication
-                                  .UsernamePasswordAuthenticationToken(userId, null, authorities);
+                              new UsernamePasswordAuthenticationToken(userId, null, authorities);
 
                           return authenticatedFlow.contextWrite(
-                              org.springframework.security.core.context
-                                  .ReactiveSecurityContextHolder.withAuthentication(auth));
+                              ReactiveSecurityContextHolder.withAuthentication(auth));
                         })
                     .onErrorResume(e -> onError(exchange, HttpStatus.UNAUTHORIZED));
               })
