@@ -1,8 +1,8 @@
 plugins {
     `java-library`
-    id("io.spring.dependency-management") version "1.1.7"
     `maven-publish`
-    id("com.diffplug.spotless") version "8.4.0"
+    
+    alias(libs.plugins.spotless)
 }
 
 group = "com.app"
@@ -10,57 +10,47 @@ version = "1.0.0-SNAPSHOT"
 description = "Common security infrastructure including JWT, AuthZ filters, and auditing for microservices."
 
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
-    }
     withSourcesJar()
+    withJavadocJar()
 }
 
-repositories {
-    mavenLocal()
-    mavenCentral()
-    maven { url = uri("https://repo.spring.io/milestone") }
-}
-
-spotless {
-    java {
-        googleJavaFormat()
-    }
-}
-
-val springBootVersion = "4.0.5"
-val springCloudVersion = "2025.1.1"
-
-dependencyManagement {
-    imports {
-        mavenBom("org.springframework.boot:spring-boot-dependencies:$springBootVersion")
-        mavenBom("org.springframework.cloud:spring-cloud-dependencies:$springCloudVersion")
-    }
+tasks.withType<Javadoc> {
+    (options as StandardJavadocDocletOptions).addStringOption("Xdoclint:none", "-quiet")
 }
 
 dependencies {
-    api("org.springframework.boot:spring-boot-starter-security")
-    api("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
+    
+    api(platform(libs.spring.boot.bom))
+    api(platform(libs.spring.cloud.bom))
+    api(platform(libs.jjwt.bom))
+
     api("com.app:shared-common:1.0.0-SNAPSHOT")
-    api("io.jsonwebtoken:jjwt-api:0.13.0")
-    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.13.0")
-    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.13.0")
-    compileOnly("org.springframework.boot:spring-boot-starter-web")
-    compileOnly("org.springframework.boot:spring-boot-starter-webflux")
-    compileOnly("org.springframework.boot:spring-boot-starter-data-jpa")
-    compileOnly("org.springframework.cloud:spring-cloud-starter-gateway-server-webflux")
-    compileOnly("io.projectreactor:reactor-core")
-    compileOnly("org.springframework.boot:spring-boot-starter-data-redis")
-    compileOnly("org.springframework.boot:spring-boot-starter-data-redis-reactive")
 
-    compileOnly("org.projectlombok:lombok")
-    annotationProcessor("org.projectlombok:lombok")
-    testCompileOnly("org.projectlombok:lombok")
-    testAnnotationProcessor("org.projectlombok:lombok")
-}
+    api(libs.spring.boot.starter.security)
+    api(libs.spring.boot.starter.oauth2.resource.server)
 
-tasks.withType<JavaCompile> {
-    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-serial", "-Xlint:-processing"))
+    api(libs.jjwt.api)
+    runtimeOnly(libs.jjwt.impl)
+    runtimeOnly(libs.jjwt.jackson)
+    runtimeOnly(libs.bouncycastle.bcprov)
+
+    compileOnly(platform(libs.spring.boot.bom))
+    compileOnly(platform(libs.spring.cloud.bom))
+    compileOnly(libs.spring.boot.starter.web)
+    compileOnly(libs.spring.boot.starter.webflux)
+    compileOnly(libs.spring.boot.starter.data.jpa)
+    compileOnly(libs.spring.boot.starter.data.redis)
+    compileOnly(libs.spring.boot.starter.data.redis.reactive)
+    compileOnly(libs.spring.cloud.starter.gateway)
+    compileOnly(libs.spring.boot.autoconfigure)
+
+    compileOnly(libs.lombok)
+    annotationProcessor(libs.lombok)
+    testCompileOnly(libs.lombok)
+    testAnnotationProcessor(libs.lombok)
+
+    annotationProcessor(platform(libs.spring.boot.bom))
+    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 }
 
 publishing {
@@ -75,6 +65,43 @@ tasks.named("build") {
     finalizedBy("publishToMavenLocal")
 }
 
-tasks.named("check") {
-    dependsOn("spotlessCheck")
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(25))
+    }
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.isFork = true
+    options.forkOptions.jvmArgs = (options.forkOptions.jvmArgs ?: mutableListOf()).apply {
+        addAll(listOf(
+            "--add-opens", "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "--add-opens", "jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+            "--add-opens", "jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+            "--add-opens", "jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+            "--add-opens", "jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+            "--add-opens", "jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+            "--add-opens", "jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+            "--add-opens", "jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-opens", "jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED"
+        ))
+    }
+    options.compilerArgs.addAll(listOf(
+        "-Xlint:all", "-Xlint:-serial", "-Xlint:-processing", "-Xdoclint:none"
+    ))
+}
+
+spotless {
+    java {
+        googleJavaFormat("1.27.0")
+    }
+}
+
+configurations.all {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "org.bouncycastle" && requested.name.startsWith("bcprov")) {
+            useVersion("1.84")
+            because("Force upgrade to resolve CVE-2026-0636")
+        }
+    }
 }

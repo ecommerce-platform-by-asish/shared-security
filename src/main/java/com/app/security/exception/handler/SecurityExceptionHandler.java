@@ -1,6 +1,8 @@
-package com.app.security.exception;
+package com.app.security.exception.handler;
 
-import com.app.common.web.dto.ApiResponse;
+import com.app.common.dto.ApiResponse;
+import com.app.security.exception.AuthStatusCode;
+import com.app.security.exception.UnauthorizedException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.core.annotation.Order;

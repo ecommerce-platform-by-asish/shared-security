@@ -1,4 +1,4 @@
-package com.app.security.user;
+package com.app.security.model;
 
 /** Standard user roles for the platform. */
 public enum Role {
@@ -7,6 +7,6 @@ public enum Role {
   GUEST;
 
   public String getAuthority() {
-    return "ROLE_" + name();
+    return SecurityConstants.ROLE_PREFIX + name();
   }
 }

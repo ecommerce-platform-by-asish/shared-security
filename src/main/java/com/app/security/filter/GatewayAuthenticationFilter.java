@@ -1,17 +1,20 @@
-package com.app.security.gateway;
+package com.app.security.filter;
 
-import com.app.security.jwt.RedisTokenBlacklistManager;
+import com.app.security.model.SecurityConstants;
+import com.app.security.token.RedisTokenBlacklistManager;
 import io.micrometer.tracing.Tracer;
-import java.util.List;
+import java.util.Collections;
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
@@ -19,13 +22,14 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 /** Gateway security filter for JWT validation and identity propagation. */
-public class AuthenticationFilter
-    extends AbstractGatewayFilterFactory<AuthenticationFilter.Config> {
+@Slf4j
+public class GatewayAuthenticationFilter
+    extends AbstractGatewayFilterFactory<GatewayAuthenticationFilter.Config> {
 
   private final ReactiveJwtDecoder jwtDecoder;
   private final RedisTokenBlacklistManager blacklistManager;
 
-  public AuthenticationFilter(
+  public GatewayAuthenticationFilter(
       ReactiveJwtDecoder jwtDecoder,
       @Autowired(required = false) RedisTokenBlacklistManager blacklistManager) {
     super(Config.class);
@@ -34,22 +38,34 @@ public class AuthenticationFilter
   }
 
   @Override
+  public String name() {
+    return "GatewayAuthentication";
+  }
+
+  @Override
   public GatewayFilter apply(Config config) {
     return (exchange, chain) -> {
-      String authHeader = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+      log.debug(
+          "GatewayAuthenticationFilter: Processing request to {}", exchange.getRequest().getPath());
+      String authHeader =
+          exchange.getRequest().getHeaders().getFirst(SecurityConstants.AUTHORIZATION_HEADER);
 
-      if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-        return onError(exchange, HttpStatus.UNAUTHORIZED);
+      if (authHeader == null || !authHeader.startsWith(SecurityConstants.BEARER_PREFIX)) {
+        return chain.filter(exchange);
       }
 
-      String token = authHeader.substring(7);
+      String token = authHeader.substring(SecurityConstants.BEARER_PREFIX.length());
 
       return jwtDecoder
           .decode(token)
           .flatMap(
               jwt -> {
-                String userId = jwt.getClaimAsString("id");
-                String role = jwt.getClaimAsString("role");
+                String userId = jwt.getClaimAsString(SecurityConstants.CLAIM_USER_ID);
+                String role = jwt.getClaimAsString(SecurityConstants.CLAIM_ROLE);
+                log.info(
+                    "GatewayAuthenticationFilter: Decoded JWT for user: {}, role: {}",
+                    userId,
+                    role);
 
                 // Coarse-grained Authorization at the Edge
                 if (config.getRequiredRole() != null && !config.getRequiredRole().isBlank()) {
@@ -66,8 +82,8 @@ public class AuthenticationFilter
                               exchange
                                   .getRequest()
                                   .mutate()
-                                  .header("X-User-Id", userId)
-                                  .header("X-User-Role", role)
+                                  .header(SecurityConstants.USER_ID_HEADER, userId)
+                                  .header(SecurityConstants.USER_ROLE_HEADER, role)
                                   .build();
                           return chain.filter(exchange.mutate().request(request).build());
                         });
@@ -76,7 +92,7 @@ public class AuthenticationFilter
                 if (blacklistManager != null) {
                   authenticatedFlow =
                       blacklistManager
-                          .isBlacklisted(jwt.getId())
+                          .isBlacklistedReactive(jwt.getId())
                           .flatMap(
                               isBlacklisted -> {
                                 if (isBlacklisted) {
@@ -88,34 +104,34 @@ public class AuthenticationFilter
                   authenticatedFlow = processRequest;
                 }
 
-                // Seed userId into tracing baggage so it's picked up by Logback automatically
+                // Seed userId into tracing baggage
                 return Mono.deferContextual(
                         ctx -> {
                           if (ctx.hasKey(Tracer.class)) {
                             Tracer tracer = ctx.get(Tracer.class);
-                            tracer.createBaggage("userId", userId);
+                            var baggage = tracer.getBaggage(SecurityConstants.USER_ID_KEY);
+                            baggage.makeCurrent(userId).close();
                           }
 
-                          // Wrap in security context so MdcUserIdWebFilter or other security-aware
-                          // components can see it
-                          var authorities =
-                              role != null
-                                  ? List.of(
-                                      new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
-                                  : List.<SimpleGrantedAuthority>of();
-                          var auth =
-                              new UsernamePasswordAuthenticationToken(userId, null, authorities);
+                          Authentication auth =
+                              new UsernamePasswordAuthenticationToken(
+                                  userId,
+                                  null,
+                                  Collections.singletonList(
+                                      new SimpleGrantedAuthority(
+                                          SecurityConstants.ROLE_PREFIX + role.toUpperCase())));
 
                           return authenticatedFlow.contextWrite(
                               ReactiveSecurityContextHolder.withAuthentication(auth));
                         })
-                    .onErrorResume(e -> onError(exchange, HttpStatus.UNAUTHORIZED));
+                    .onErrorResume(_ -> onError(exchange, HttpStatus.UNAUTHORIZED));
               })
-          .onErrorResume(e -> onError(exchange, HttpStatus.UNAUTHORIZED));
+          .onErrorResume(_ -> onError(exchange, HttpStatus.UNAUTHORIZED));
     };
   }
 
-  private Mono<Void> onError(ServerWebExchange exchange, HttpStatusCode httpStatus) {
+  private Mono<Void> onError(
+      @NonNull ServerWebExchange exchange, @NonNull HttpStatusCode httpStatus) {
     var response = exchange.getResponse();
     response.setStatusCode(httpStatus);
     return response.setComplete();
