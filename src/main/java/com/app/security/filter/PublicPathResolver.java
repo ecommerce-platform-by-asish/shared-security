@@ -19,15 +19,24 @@ public interface PublicPathResolver {
 
   Set<String> DEFAULT_PATHS =
       Set.of(
-          "/api/auth/**",
           "/login",
+          "/**/login",
           "/logout",
+          "/**/logout",
+          "/register",
+          "/**/register",
           "/.well-known/**",
+          "/api/*/.well-known/**",
           "/v3/api-docs/**",
+          "/api/*/v3/api-docs/**",
           "/swagger-ui/**",
+          "/api/*/swagger-ui/**",
           "/swagger-ui.html",
+          "/**/swagger-ui.html",
           "/webjars/**",
-          "/actuator/health");
+          "/api/*/webjars/**",
+          "/actuator/health",
+          "/**/actuator/health");
 
   /**
    * Resolves the final set of permitted paths.

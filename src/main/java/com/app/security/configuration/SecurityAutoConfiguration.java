@@ -70,7 +70,7 @@ public class SecurityAutoConfiguration {
       }
 
       // Priority 2: Standard Spring Property
-      if (oauth2Properties != null && oauth2Properties.getJwt() != null) {
+      if (oauth2Properties != null) {
         String springJwkSetUri = oauth2Properties.getJwt().getJwkSetUri();
         if (springJwkSetUri != null && !springJwkSetUri.isBlank()) {
           return NimbusReactiveJwtDecoder.withJwkSetUri(springJwkSetUri).build();
@@ -117,7 +117,7 @@ public class SecurityAutoConfiguration {
   @ConditionalOnProperty(
       name = "app.security.rsa.generate",
       havingValue = "true",
-      matchIfMissing = true)
+      matchIfMissing = false)
   static class RsaKeyGenerationConfig {
 
     @Bean

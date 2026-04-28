@@ -38,6 +38,7 @@ dependencies {
     compileOnly(libs.lombok)
     annotationProcessor(platform(libs.sb.bom))
     annotationProcessor(libs.lombok)
+    annotationProcessor(libs.sb.configuration.processor)
 }
 
 publishing {
