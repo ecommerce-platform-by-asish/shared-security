@@ -1,4 +1,4 @@
 com.app.security.configuration.SecurityAutoConfiguration
-com.app.security.audit.JpaAuditingConfig
-com.app.security.exception.handler.SecurityExceptionHandler
-com.app.security.exception.handler.ReactiveSecurityExceptionHandler
+com.app.security.configuration.WebSecurityAutoConfiguration
+com.app.security.configuration.ServletSecurityAutoConfiguration
+com.app.security.configuration.ReactiveSecurityAutoConfiguration

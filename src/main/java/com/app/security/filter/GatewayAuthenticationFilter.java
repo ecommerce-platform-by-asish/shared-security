@@ -84,6 +84,7 @@ public class GatewayAuthenticationFilter
                                   .mutate()
                                   .header(SecurityConstants.USER_ID_HEADER, userId)
                                   .header(SecurityConstants.USER_ROLE_HEADER, role)
+                                  .headers(h -> h.remove(SecurityConstants.AUTHORIZATION_HEADER))
                                   .build();
                           return chain.filter(exchange.mutate().request(request).build());
                         });
