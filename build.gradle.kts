@@ -18,7 +18,7 @@ dependencies {
     api(platform(libs.sc.bom))
     api(platform(libs.jjwt.bom))
 
-    implementation("com.app:shared-common:1.0.0-SNAPSHOT")
+    api("com.app:shared-common:1.0.0-SNAPSHOT")
     
     api(libs.sb.starter.security)
     api(libs.sb.starter.oauth2.resource.server)
@@ -30,9 +30,7 @@ dependencies {
     compileOnly(libs.sb.starter.data.redis)
     compileOnly(libs.sc.starter.gateway)
     
-    api(libs.jjwt.api)
-    runtimeOnly(libs.jjwt.impl)
-    runtimeOnly(libs.jjwt.jackson)
+    api(libs.bundles.security.jwt)
 
     compileOnly(libs.sb.autoconfigure)
     compileOnly(libs.lombok)
@@ -40,6 +38,7 @@ dependencies {
     annotationProcessor(libs.lombok)
     annotationProcessor(libs.sb.configuration.processor)
 }
+
 
 publishing {
     publications {
@@ -49,10 +48,25 @@ publishing {
     }
 }
 
-spotless { java { googleJavaFormat("1.27.0") } }
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+    options.compilerArgs.removeAll { it == "--enable-preview" }
+}
+
+spotless {
+    java {
+        googleJavaFormat("1.27.0")
+        removeUnusedImports()
+    }
+}
 
 
 tasks.bootJar { enabled = false }
 tasks.jar { enabled = true }
 
-tasks.build { dependsOn("publishToMavenLocal") }
+tasks.build {
+    finalizedBy("publishToMavenLocal")
+}
+
+
+

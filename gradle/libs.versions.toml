@@ -1,15 +1,15 @@
 [versions]
-springBoot = "4.0.6"
+springBoot = "4.1.0-RC1"
 springCloud = "2025.1.1"
 springCloudGateway = "5.0.1"
 springDoc = "3.0.3"
-lombok = "1.18.36"
+lombok = "1.18.44"
 mapstruct = "1.6.3"
 bouncycastle = "1.84"
 jjwt = "0.12.6"
 postgresql = "42.7.5"
-jackson = "2.18.2"
-micrometer = "1.14.3"
+jackson = "2.18.3"
+micrometer = "1.16.5"
 otel = "1.46.0"
 
 [libraries]
@@ -66,7 +66,12 @@ lombok = ["lombok"]
 lombokmapstruct = ["lombok", "mapstruct", "mapstruct-processor"]
 tracing = ["micrometer-tracing-bridge-otel", "otel-exporter-otlp"]
 testbundle = ["sb-starter-test", "junit-platform-launcher"]
+security-jwt = ["jjwt-api", "jjwt-impl", "jjwt-jackson"]
+observability = ["sb-starter-actuator", "micrometer-tracing-bridge-otel", "otel-exporter-otlp"]
+reactive-gateway = ["sc-starter-gateway", "sb-starter-webflux", "sb-starter-data-redis-reactive"]
+persistence-pg = ["sb-starter-data-jpa", "postgresql", "sb-starter-flyway", "flyway-database-postgresql"]
 
 [plugins]
 springboot = { id = "org.springframework.boot", version.ref = "springBoot" }
 spotless = { id = "com.diffplug.spotless", version = "7.0.2" }
+

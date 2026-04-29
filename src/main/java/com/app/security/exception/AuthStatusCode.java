@@ -4,6 +4,7 @@ import com.app.common.exception.StatusCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 
+/** Security-specific status codes for authentication and authorization failures. */
 public enum AuthStatusCode implements StatusCode {
   UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "Invalid email or password"),
   FORBIDDEN(HttpStatus.FORBIDDEN, "You do not have permission to access this resource"),

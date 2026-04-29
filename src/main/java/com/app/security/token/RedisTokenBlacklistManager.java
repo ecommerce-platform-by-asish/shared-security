@@ -1,7 +1,6 @@
 package com.app.security.token;
 
 import java.time.Duration;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -9,6 +8,7 @@ import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import reactor.core.publisher.Mono;
 
+/** Manages invalid or logged-out JWT tokens using Redis as a shared store. */
 @Slf4j
 @RequiredArgsConstructor
 public class RedisTokenBlacklistManager {
@@ -22,23 +22,20 @@ public class RedisTokenBlacklistManager {
     return BLACKLIST_PREFIX + jti;
   }
 
+  /** Persists a token ID in the blacklist for the specified duration. */
   public void blacklist(String jti, Duration duration) {
-    Optional.ofNullable(blockingTemplate)
-        .ifPresentOrElse(
-            t -> t.opsForValue().set(key(jti), "true", duration),
-            () ->
-                log.warn("Blocking RedisTemplate not available. Cannot blacklist token: {}", jti));
+    if (blockingTemplate != null) {
+      blockingTemplate.opsForValue().set(key(jti), "1", duration);
+    } else {
+      log.warn("Blocking RedisTemplate not available. Cannot blacklist token: {}", jti);
+    }
   }
 
   public boolean isBlacklisted(String jti) {
-    return Optional.ofNullable(blockingTemplate)
-        .map(t -> Boolean.TRUE.equals(t.hasKey(key(jti))))
-        .orElse(false);
+    return blockingTemplate != null && Boolean.TRUE.equals(blockingTemplate.hasKey(key(jti)));
   }
 
   public Mono<Boolean> isBlacklistedReactive(String jti) {
-    return Optional.ofNullable(reactiveTemplate)
-        .map(t -> t.hasKey(key(jti)))
-        .orElse(Mono.just(false));
+    return reactiveTemplate != null ? reactiveTemplate.hasKey(key(jti)) : Mono.just(false);
   }
 }

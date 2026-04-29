@@ -1,5 +1,6 @@
 package com.app.security.model;
 
+/** Shared constants for security headers, claim keys, and roles. */
 public final class SecurityConstants {
 
   private SecurityConstants() {}

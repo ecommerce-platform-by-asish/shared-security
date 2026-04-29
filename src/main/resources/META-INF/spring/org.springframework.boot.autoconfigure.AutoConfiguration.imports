@@ -1,4 +1,2 @@
 com.app.security.configuration.SecurityAutoConfiguration
-com.app.security.configuration.WebSecurityAutoConfiguration
-com.app.security.configuration.ServletSecurityAutoConfiguration
-com.app.security.configuration.ReactiveSecurityAutoConfiguration
+com.app.security.audit.JpaAuditingConfig

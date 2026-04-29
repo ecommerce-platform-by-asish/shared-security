@@ -2,6 +2,8 @@ package com.app.security.token;
 
 import com.app.security.configuration.SecurityProperties;
 import com.app.security.exception.KeyPairNotInitializedException;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
@@ -13,12 +15,14 @@ import java.util.UUID;
 import javax.crypto.SecretKey;
 import lombok.RequiredArgsConstructor;
 
+/** Utility for generating and validating RSA/HMAC-signed JWT tokens. */
 @RequiredArgsConstructor
 public class JwtProvider {
 
   private final SecurityProperties properties;
   private final KeyPair keyPair;
 
+  /** Generates a signed JWT with the provided subject and custom claims. */
   public String generateToken(String subject, Map<String, Object> claims) {
     var now = Instant.now();
     var builder =
@@ -39,6 +43,17 @@ public class JwtProvider {
     } else {
       throw new KeyPairNotInitializedException("signing");
     }
+  }
+
+  /** Parses and validates the provided JWT, returning its claims if successful. */
+  public Jws<Claims> parseToken(String token) {
+    var parser = Jwts.parser();
+    if (keyPair != null) {
+      parser.verifyWith(keyPair.getPublic());
+    } else {
+      parser.verifyWith(getSecretKey());
+    }
+    return parser.build().parseSignedClaims(token);
   }
 
   private SecretKey getSecretKey() {

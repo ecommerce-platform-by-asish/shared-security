@@ -1,6 +1,6 @@
 package com.app.security.filter;
 
-import com.app.security.annotation.PublicEndpoint;
+import com.app.security.annotation.SecurityRules;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -12,10 +12,7 @@ import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springframework.web.util.pattern.PathPattern;
 
-/**
- * Strategy interface for resolving the complete set of publicly accessible security paths. Unifies
- * static defaults, external configuration, and dynamic @PublicEndpoint discovery.
- */
+/** Strategy for resolving publicly accessible API paths for all services. */
 @FunctionalInterface
 public interface PublicPathResolver {
 
@@ -37,15 +34,9 @@ public interface PublicPathResolver {
           "/**/swagger-ui.html",
           "/webjars/**",
           "/api/*/webjars/**",
-          "/actuator/health",
-          "/**/actuator/health");
+          "/actuator/**");
 
-  /**
-   * Resolves the final set of permitted paths.
-   *
-   * @param customPaths Optional additional paths from configuration.
-   * @return A unique array of path patterns.
-   */
+  /** Resolves the merged set of default, configured, and discovery-based public paths. */
   String[] resolve(List<String> customPaths);
 
   /** Factory method for Servlet-based (MVC) applications. */
@@ -131,8 +122,8 @@ public interface PublicPathResolver {
   }
 
   private static boolean isPublic(HandlerMethod method) {
-    return method.hasMethodAnnotation(PublicEndpoint.class)
-        || method.getBeanType().isAnnotationPresent(PublicEndpoint.class);
+    return method.hasMethodAnnotation(SecurityRules.PublicEndpoint.class)
+        || method.getBeanType().isAnnotationPresent(SecurityRules.PublicEndpoint.class);
   }
 
   private static String normalize(String path) {

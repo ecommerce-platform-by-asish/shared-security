@@ -6,6 +6,7 @@ public enum Role {
   USER,
   GUEST;
 
+  /** Returns the Spring Security compliant role string (e.g., ROLE_USER). */
   public String getAuthority() {
     return SecurityConstants.ROLE_PREFIX + name();
   }
