@@ -1,8 +1,11 @@
 package com.app.security.configuration;
 
+import static com.app.security.model.SecurityConstants.ALGORITHM_HMAC_256;
+import static org.springframework.http.HttpMethod.OPTIONS;
+import static org.springframework.security.config.http.SessionCreationPolicy.STATELESS;
+
 import com.app.security.filter.PublicPathResolver;
 import com.app.security.filter.UserContextFilter;
-import com.app.security.model.SecurityConstants;
 import io.micrometer.tracing.Tracer;
 import java.security.KeyPair;
 import java.security.interfaces.RSAPublicKey;
@@ -15,14 +18,12 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -67,7 +68,7 @@ public class ServletSecurityAutoConfiguration {
     }
     if (secretKey != null && !secretKey.isBlank()) {
       return NimbusJwtDecoder.withSecretKey(
-              new SecretKeySpec(secretKey.getBytes(), SecurityConstants.ALGORITHM_HMAC_256))
+              new SecretKeySpec(secretKey.getBytes(), ALGORITHM_HMAC_256))
           .build();
     }
     String jwkSetUri = properties.jwt().jwkSetUri();
@@ -88,11 +89,11 @@ public class ServletSecurityAutoConfiguration {
       throws Exception {
     http.cors(Customizer.withDefaults())
         .csrf(AbstractHttpConfigurer::disable)
-        .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .sessionManagement(s -> s.sessionCreationPolicy(STATELESS))
         .logout(LogoutConfigurer::disable)
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers(HttpMethod.OPTIONS, "/**")
+                auth.requestMatchers(OPTIONS, "/**")
                     .permitAll()
                     .requestMatchers(resolver.resolve(properties.publicPaths()))
                     .permitAll()

@@ -8,7 +8,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 
 /** Shared JPA auditing configuration that safely handles non-JPA environments. */
 @Configuration
-@ConditionalOnClass(name = "org.springframework.data.jpa.repository.config.EnableJpaAuditing")
+@ConditionalOnClass(EnableJpaAuditing.class)
 public class JpaAuditingConfig {
 
   @Configuration

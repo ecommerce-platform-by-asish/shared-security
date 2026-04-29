@@ -9,6 +9,8 @@ import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationContext;
 import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import org.springframework.web.util.pattern.PathPattern;
 
 /**
  * Strategy interface for resolving the complete set of publicly accessible security paths. Unifies
@@ -52,10 +54,7 @@ public interface PublicPathResolver {
         "Servlet",
         () -> {
           var mapping =
-              context.getBean(
-                  "requestMappingHandlerMapping",
-                  org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping
-                      .class);
+              context.getBean("requestMappingHandlerMapping", RequestMappingHandlerMapping.class);
           return mapping.getHandlerMethods().entrySet().stream()
               .filter(e -> isPublic(e.getValue()))
               .filter(e -> e.getKey().getPathPatternsCondition() != null)
@@ -79,7 +78,7 @@ public interface PublicPathResolver {
               .flatMap(
                   e ->
                       e.getKey().getPatternsCondition().getPatterns().stream()
-                          .map(org.springframework.web.util.pattern.PathPattern::getPatternString))
+                          .map(PathPattern::getPatternString))
               .toList();
         });
   }

@@ -1,5 +1,7 @@
 package com.app.security.configuration;
 
+import static com.app.security.model.SecurityConstants.ALGORITHM_RSA;
+
 import com.app.security.exception.RsaException;
 import com.app.security.filter.GatewayAuthenticationFilter;
 import com.app.security.model.SecurityConstants;
@@ -9,6 +11,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.RSAPublicKey;
+import java.util.Optional;
 import javax.crypto.spec.SecretKeySpec;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +23,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.ReactiveStringRedisTemplate;
+import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -61,33 +65,38 @@ public class SecurityAutoConfiguration {
         SecurityProperties properties,
         @Autowired(required = false) OAuth2ResourceServerProperties oauth2Properties,
         @Autowired(required = false) KeyPair keyPair) {
-      String secretKey = properties.jwt().secretKey();
-      String jwkSetUri = properties.jwt().jwkSetUri();
 
-      // Priority 1: Custom Property
-      if (jwkSetUri != null && !jwkSetUri.isBlank()) {
-        return NimbusReactiveJwtDecoder.withJwkSetUri(jwkSetUri).build();
-      }
-
-      // Priority 2: Standard Spring Property
-      if (oauth2Properties != null) {
-        String springJwkSetUri = oauth2Properties.getJwt().getJwkSetUri();
-        if (springJwkSetUri != null && !springJwkSetUri.isBlank()) {
-          return NimbusReactiveJwtDecoder.withJwkSetUri(springJwkSetUri).build();
-        }
-      }
-
-      if (secretKey != null && !secretKey.isBlank()) {
-        return NimbusReactiveJwtDecoder.withSecretKey(
-                new SecretKeySpec(secretKey.getBytes(), SecurityConstants.ALGORITHM_HMAC_256))
-            .build();
-      }
-
-      if (keyPair != null && keyPair.getPublic() instanceof RSAPublicKey rsaPublicKey) {
-        return NimbusReactiveJwtDecoder.withPublicKey(rsaPublicKey).build();
-      }
-      throw new IllegalStateException(
-          "Neither jwk-set-uri, secret-key, nor RSA KeyPair provided for ReactiveJwtDecoder");
+      return Optional.ofNullable(properties.jwt().jwkSetUri())
+          .filter(uri -> !uri.isBlank())
+          .map(uri -> NimbusReactiveJwtDecoder.withJwkSetUri(uri).build())
+          .or(
+              () ->
+                  Optional.ofNullable(oauth2Properties)
+                      .map(OAuth2ResourceServerProperties::getJwt)
+                      .map(OAuth2ResourceServerProperties.Jwt::getJwkSetUri)
+                      .filter(uri -> !uri.isBlank())
+                      .map(uri -> NimbusReactiveJwtDecoder.withJwkSetUri(uri).build()))
+          .or(
+              () ->
+                  Optional.ofNullable(properties.jwt().secretKey())
+                      .filter(key -> !key.isBlank())
+                      .map(
+                          key ->
+                              NimbusReactiveJwtDecoder.withSecretKey(
+                                      new SecretKeySpec(
+                                          key.getBytes(), SecurityConstants.ALGORITHM_HMAC_256))
+                                  .build()))
+          .or(
+              () ->
+                  Optional.ofNullable(keyPair)
+                      .map(KeyPair::getPublic)
+                      .filter(RSAPublicKey.class::isInstance)
+                      .map(RSAPublicKey.class::cast)
+                      .map(key -> NimbusReactiveJwtDecoder.withPublicKey(key).build()))
+          .orElseThrow(
+              () ->
+                  new IllegalStateException(
+                      "No valid JWT decoding configuration provided (JWK URI, Secret, or RSA Key)"));
     }
 
     @Bean
@@ -100,7 +109,7 @@ public class SecurityAutoConfiguration {
   }
 
   @Configuration
-  @ConditionalOnClass(name = "org.springframework.data.redis.core.RedisOperations")
+  @ConditionalOnClass(RedisOperations.class)
   static class TokenBlacklistAutoConfiguration {
 
     @Bean
@@ -128,7 +137,7 @@ public class SecurityAutoConfiguration {
               + "This is ONLY intended for development/test. "
               + "In production, provide a persistent KeyPair bean or configuration.");
       try {
-        KeyPairGenerator generator = KeyPairGenerator.getInstance(SecurityConstants.ALGORITHM_RSA);
+        KeyPairGenerator generator = KeyPairGenerator.getInstance(ALGORITHM_RSA);
         generator.initialize(2048);
         return generator.generateKeyPair();
       } catch (NoSuchAlgorithmException e) {
