@@ -7,15 +7,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.MDC;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -23,6 +19,8 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
+
+import static com.app.security.util.SecurityUtils.createAuthentication;
 
 /** Holder for User Identity filters that propagate Gateway headers into Security Contexts. */
 public final class UserContextFilter {
@@ -47,21 +45,8 @@ public final class UserContextFilter {
 
       if (userId != null) {
         String role = request.getHeader(SecurityConstants.USER_ROLE_HEADER);
-        var authorities =
-            Stream.ofNullable(role)
-                .flatMap(r -> Arrays.stream(r.split(",")))
-                .map(String::trim)
-                .filter(r -> !r.isBlank())
-                .map(String::toUpperCase)
-                .map(
-                    r ->
-                        r.startsWith(SecurityConstants.ROLE_PREFIX)
-                            ? r
-                            : SecurityConstants.ROLE_PREFIX + r)
-                .map(SimpleGrantedAuthority::new)
-                .toList();
-        var auth = new UsernamePasswordAuthenticationToken(userId, null, authorities);
-        SecurityContextHolder.getContext().setAuthentication(auth);
+        SecurityContextHolder.getContext()
+            .setAuthentication(createAuthentication(userId, role));
       }
 
       // MDC.putCloseable covers this filter's own log lines.
@@ -103,21 +88,7 @@ public final class UserContextFilter {
       }
 
       String role = exchange.getRequest().getHeaders().getFirst(SecurityConstants.USER_ROLE_HEADER);
-      var authorities =
-          Stream.ofNullable(role)
-              .flatMap(r -> Arrays.stream(r.split(",")))
-              .map(String::trim)
-              .filter(r -> !r.isBlank())
-              .map(String::toUpperCase)
-              .map(
-                  r ->
-                      r.startsWith(SecurityConstants.ROLE_PREFIX)
-                          ? r
-                          : SecurityConstants.ROLE_PREFIX + r)
-              .map(SimpleGrantedAuthority::new)
-              .toList();
-
-      var auth = new UsernamePasswordAuthenticationToken(userId, null, authorities);
+      var auth = createAuthentication(userId, role);
       return flow.contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
     }
   }

@@ -4,7 +4,6 @@ import com.app.security.model.SecurityConstants;
 import com.app.security.token.RedisTokenBlacklistManager;
 import io.micrometer.observation.ObservationRegistry;
 import io.micrometer.tracing.Tracer;
-import java.util.Collections;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
@@ -14,14 +13,14 @@ import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+
+import static com.app.security.util.SecurityUtils.createAuthentication;
 
 /** Validates JWT tokens at the entry point and extracts user metadata for downstream services. */
 @Slf4j
@@ -99,13 +98,7 @@ public class GatewayAuthenticationGatewayFilterFactory
                   tracer.createBaggage(SecurityConstants.USER_ID_KEY).set(userId);
                 }
 
-                Authentication auth =
-                    new UsernamePasswordAuthenticationToken(
-                        userId,
-                        null,
-                        Collections.singletonList(
-                            new SimpleGrantedAuthority(
-                                SecurityConstants.ROLE_PREFIX + role.toUpperCase())));
+                Authentication auth = createAuthentication(userId, role);
 
                 Mono<Boolean> blacklistCheck =
                     (blacklistManager != null)
