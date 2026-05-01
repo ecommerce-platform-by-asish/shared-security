@@ -8,6 +8,8 @@ import java.util.Collections;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
 import org.springframework.http.HttpStatus;
@@ -32,11 +34,9 @@ public class GatewayAuthenticationGatewayFilterFactory
 
   public GatewayAuthenticationGatewayFilterFactory(
       ReactiveJwtDecoder jwtDecoder,
-      @org.springframework.beans.factory.annotation.Autowired(required = false)
-          RedisTokenBlacklistManager blacklistManager,
-      org.springframework.beans.factory.ObjectProvider<Tracer> tracerProvider,
-      org.springframework.beans.factory.ObjectProvider<ObservationRegistry>
-          observationRegistryProvider) {
+      @Autowired(required = false) RedisTokenBlacklistManager blacklistManager,
+      ObjectProvider<Tracer> tracerProvider,
+      ObjectProvider<ObservationRegistry> observationRegistryProvider) {
     super(Config.class);
     this.jwtDecoder = jwtDecoder;
     this.blacklistManager = blacklistManager;

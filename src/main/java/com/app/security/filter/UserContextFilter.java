@@ -42,7 +42,6 @@ public final class UserContextFilter {
         @NonNull FilterChain filterChain)
         throws ServletException, IOException {
       String userId = request.getHeader(SecurityConstants.USER_ID_HEADER);
-      log.debug("UserContextFilter.Servlet: Incoming X-User-Id: {}", userId);
 
       String effectiveUserId = userId != null ? userId : SecurityConstants.ANONYMOUS_USER;
 
