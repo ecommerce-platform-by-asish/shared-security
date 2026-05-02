@@ -1,6 +1,9 @@
 package com.app.security.filter;
 
+import com.app.common.context.UserContext;
 import com.app.security.model.SecurityConstants;
+import com.app.security.util.SecurityUtils;
+import io.micrometer.tracing.BaggageInScope;
 import io.micrometer.tracing.Tracer;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -8,11 +11,10 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.MDC;
 import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.server.ServerWebExchange;
@@ -20,15 +22,10 @@ import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
-import static com.app.security.util.SecurityUtils.createAuthentication;
-
-/** Holder for User Identity filters that propagate Gateway headers into Security Contexts. */
 public final class UserContextFilter {
 
   private UserContextFilter() {}
 
-  /** Propagates user identity into the Servlet Security Context and MDC. */
-  @Slf4j
   @RequiredArgsConstructor
   public static class Servlet extends OncePerRequestFilter {
     private final @Nullable Tracer tracer;
@@ -37,59 +34,54 @@ public final class UserContextFilter {
     protected void doFilterInternal(
         @NonNull HttpServletRequest request,
         @NonNull HttpServletResponse response,
-        @NonNull FilterChain filterChain)
-        throws ServletException, IOException {
-      String userId = request.getHeader(SecurityConstants.USER_ID_HEADER);
+        @NonNull FilterChain filterChain) {
 
-      String effectiveUserId = userId != null ? userId : SecurityConstants.ANONYMOUS_USER;
+      String userId =
+          SecurityUtils.resolveUserId(SecurityContextHolder.getContext().getAuthentication());
+      String traceId = SecurityUtils.resolveTraceId(tracer);
 
-      if (userId != null) {
-        String role = request.getHeader(SecurityConstants.USER_ROLE_HEADER);
-        SecurityContextHolder.getContext()
-            .setAuthentication(createAuthentication(userId, role));
-      }
-
-      // MDC.putCloseable covers this filter's own log lines.
-      // tracer.createBaggage.makeCurrent ensures sub-observations (DispatcherServlet, JPA, etc.)
-      // also read userId=effectiveUserId from Baggage when syncing correlation fields to MDC.
-      try (var mdcScope = MDC.putCloseable(SecurityConstants.USER_ID_KEY, effectiveUserId)) {
-        if (tracer != null) {
-          try (var baggageScope =
-              tracer.createBaggage(SecurityConstants.USER_ID_KEY).makeCurrent(effectiveUserId)) {
-            filterChain.doFilter(request, response);
-          }
-        } else {
-          filterChain.doFilter(request, response);
-        }
-      }
+      UserContext.runWithContext(
+          traceId,
+          userId,
+          () -> {
+            if (tracer != null) {
+              try (BaggageInScope _ =
+                  tracer.createBaggageInScope(SecurityConstants.USER_ID_KEY, userId)) {
+                filterChain.doFilter(request, response);
+              } catch (ServletException | IOException e) {
+                throw new RuntimeException(e);
+              }
+            } else {
+              try {
+                filterChain.doFilter(request, response);
+              } catch (ServletException | IOException e) {
+                throw new RuntimeException(e);
+              }
+            }
+          });
     }
   }
 
-  /** Propagates user identity into the Reactive Security Context and MDC. */
   @RequiredArgsConstructor
   public static class Reactive implements WebFilter {
     private final @Nullable Tracer tracer;
 
-    /** Extracts identity from headers and populates the reactive context. */
     @Override
     @NonNull
     public Mono<Void> filter(@NonNull ServerWebExchange exchange, @NonNull WebFilterChain chain) {
-      String userId = exchange.getRequest().getHeaders().getFirst(SecurityConstants.USER_ID_HEADER);
-      String effectiveUserId = userId != null ? userId : SecurityConstants.ANONYMOUS_USER;
-
-      var flow =
-          chain
-              .filter(exchange)
-              .doFirst(() -> MDC.put(SecurityConstants.USER_ID_KEY, effectiveUserId))
-              .doFinally(_ -> MDC.remove(SecurityConstants.USER_ID_KEY));
-
-      if (userId == null) {
-        return flow;
-      }
-
-      String role = exchange.getRequest().getHeaders().getFirst(SecurityConstants.USER_ROLE_HEADER);
-      var auth = createAuthentication(userId, role);
-      return flow.contextWrite(ReactiveSecurityContextHolder.withAuthentication(auth));
+      return ReactiveSecurityContextHolder.getContext()
+          .mapNotNull(SecurityContext::getAuthentication)
+          .map(SecurityUtils::resolveUserId)
+          .defaultIfEmpty(SecurityConstants.ANONYMOUS_USER)
+          .flatMap(
+              userId -> {
+                if (tracer != null) {
+                  try (var _ = tracer.createBaggageInScope(SecurityConstants.USER_ID_KEY, userId)) {
+                    return chain.filter(exchange);
+                  }
+                }
+                return chain.filter(exchange);
+              });
     }
   }
 }

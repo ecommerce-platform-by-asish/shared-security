@@ -11,6 +11,7 @@ import java.security.KeyPair;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import javax.crypto.SecretKey;
 import lombok.RequiredArgsConstructor;
@@ -36,23 +37,22 @@ public class JwtProvider {
             .issuedAt(Date.from(now))
             .expiration(Date.from(now.plusMillis(properties.jwt().expirationMs())));
 
-    if (keyPair != null) {
-      return builder.signWith(keyPair.getPrivate(), Jwts.SIG.RS256).compact();
-    } else if (properties.jwt().secretKey() != null && !properties.jwt().secretKey().isBlank()) {
-      return builder.signWith(getSecretKey(), Jwts.SIG.HS256).compact();
-    } else {
-      throw new KeyPairNotInitializedException("signing");
-    }
+    return Optional.ofNullable(keyPair)
+        .map(kp -> builder.signWith(kp.getPrivate(), Jwts.SIG.RS256).compact())
+        .or(
+            () ->
+                Optional.ofNullable(properties.jwt().secretKey())
+                    .filter(s -> !s.isBlank())
+                    .map(s -> builder.signWith(getSecretKey(), Jwts.SIG.HS256).compact()))
+        .orElseThrow(() -> new KeyPairNotInitializedException("signing"));
   }
 
   /** Parses and validates the provided JWT, returning its claims if successful. */
   public Jws<Claims> parseToken(String token) {
     var parser = Jwts.parser();
-    if (keyPair != null) {
-      parser.verifyWith(keyPair.getPublic());
-    } else {
-      parser.verifyWith(getSecretKey());
-    }
+    Optional.ofNullable(keyPair)
+        .map(KeyPair::getPublic)
+        .ifPresentOrElse(parser::verifyWith, () -> parser.verifyWith(getSecretKey()));
     return parser.build().parseSignedClaims(token);
   }
 

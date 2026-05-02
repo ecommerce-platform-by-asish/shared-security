@@ -1,2 +1,1 @@
 com.app.security.configuration.SecurityAutoConfiguration
-com.app.security.audit.JpaAuditingConfig

@@ -4,6 +4,7 @@ import com.app.security.annotation.SecurityRules;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
@@ -127,7 +128,9 @@ public interface PublicPathResolver {
   }
 
   private static String normalize(String path) {
-    if (path == null || path.isBlank() || path.equals("/")) return "/";
-    return path.startsWith("/") ? path : "/" + path;
+    return Optional.ofNullable(path)
+        .filter(p -> !p.isBlank() && !p.equals("/"))
+        .map(p -> p.startsWith("/") ? p : "/" + p)
+        .orElse("/");
   }
 }

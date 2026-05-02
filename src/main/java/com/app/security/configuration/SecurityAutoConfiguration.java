@@ -5,22 +5,22 @@ import static org.springframework.http.HttpMethod.OPTIONS;
 import static org.springframework.security.config.http.SessionCreationPolicy.STATELESS;
 
 import com.app.security.exception.handler.SecurityExceptionHandler;
-import com.app.security.filter.GatewayAuthenticationGatewayFilterFactory;
 import com.app.security.filter.PublicPathResolver;
 import com.app.security.filter.UserContextFilter;
 import com.app.security.token.JwtProvider;
 import com.app.security.token.RedisTokenBlacklistManager;
-import io.micrometer.observation.ObservationRegistry;
+import com.app.security.util.SecurityUtils;
 import io.micrometer.tracing.Tracer;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPublicKey;
+import java.util.Optional;
 import javax.crypto.spec.SecretKeySpec;
-import org.jspecify.annotations.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -35,7 +35,6 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
@@ -45,17 +44,22 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
-import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.reactive.config.WebFluxConfigurer;
 
-/** Auto-configures common security including JWT decoders, filters, and password encoders. */
-@Configuration
+/**
+ * Main Security Auto-Configuration. Acts as the entry point for shared security infrastructure.
+ * Consolidates stack-specific logic into inner classes using standard imports.
+ */
+@Slf4j
+@AutoConfiguration
 @EnableConfigurationProperties(SecurityProperties.class)
+@Import(JpaAuditingConfiguration.class)
 public class SecurityAutoConfiguration {
 
   @Bean
@@ -67,17 +71,7 @@ public class SecurityAutoConfiguration {
     return generator.generateKeyPair();
   }
 
-  public static @NonNull CorsConfiguration getCorsConfiguration(SecurityProperties.Cors cors) {
-    CorsConfiguration configuration = new CorsConfiguration();
-    configuration.setAllowedOriginPatterns(cors.allowedOrigins());
-    configuration.setAllowedMethods(cors.allowedMethods());
-    configuration.setAllowedHeaders(cors.allowedHeaders());
-    configuration.setAllowCredentials(cors.allowCredentials());
-    return configuration;
-  }
-
   @Bean
-  @ConditionalOnClass(name = "org.springframework.security.crypto.password.PasswordEncoder")
   @ConditionalOnMissingBean
   public PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
@@ -85,97 +79,98 @@ public class SecurityAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
-  public JwtProvider jwtProvider(
-      SecurityProperties properties, ObjectProvider<KeyPair> keyPairProvider) {
-    return new JwtProvider(properties, keyPairProvider.getIfAvailable());
+  public JwtProvider jwtProvider(SecurityProperties properties, ObjectProvider<KeyPair> keyPair) {
+    return new JwtProvider(properties, keyPair.getIfAvailable());
   }
 
   @Bean
   @ConditionalOnClass(name = "org.springframework.data.redis.core.RedisTemplate")
   @ConditionalOnMissingBean
   public RedisTokenBlacklistManager redisTokenBlacklistManager(
-      ObjectProvider<StringRedisTemplate> blockingTemplateProvider,
-      ObjectProvider<ReactiveStringRedisTemplate> reactiveTemplateProvider) {
-    return new RedisTokenBlacklistManager(
-        blockingTemplateProvider.getIfAvailable(), reactiveTemplateProvider.getIfAvailable());
+      ObjectProvider<StringRedisTemplate> blocking,
+      ObjectProvider<ReactiveStringRedisTemplate> reactive) {
+    return new RedisTokenBlacklistManager(blocking.getIfAvailable(), reactive.getIfAvailable());
   }
 
-  @Configuration
-  @ConditionalOnClass(SecurityWebFilterChain.class)
+  /** REACTIVE STACK CONFIGURATION */
+  @Configuration(proxyBeanMethods = false)
+  @ConditionalOnClass({WebFluxConfigurer.class, EnableWebFluxSecurity.class})
   @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)
   @EnableWebFluxSecurity
   @Import(SecurityExceptionHandler.Reactive.class)
   static class ReactiveSecurityConfiguration {
 
     @Bean
-    public PublicPathResolver publicPathResolver(ApplicationContext context) {
-      return PublicPathResolver.reactive(context);
-    }
-
-    @Bean
-    public org.springframework.web.cors.reactive.CorsConfigurationSource corsConfigurationSource(
-        SecurityProperties properties) {
-      CorsConfiguration configuration = getCorsConfiguration(properties.cors());
-      var source = new org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource();
-      source.registerCorsConfiguration("/**", configuration);
+    public ReactiveCorsConfigurationSource corsConfigurationSource(SecurityProperties props) {
+      var source = new NamedReactiveCorsSource();
+      source.registerCorsConfiguration("/**", SecurityUtils.buildCors(props.cors()));
       return source;
     }
 
     @Bean
-    @ConditionalOnMissingClass("org.springframework.cloud.gateway.filter.GlobalFilter")
-    public UserContextFilter.Reactive userContextWebFilter(ObjectProvider<Tracer> tracerProvider) {
-      return new UserContextFilter.Reactive(tracerProvider.getIfAvailable());
-    }
-
-    @Bean
     @ConditionalOnMissingBean
-    public ReactiveJwtDecoder reactiveJwtDecoder(SecurityProperties properties) {
-      String jwkSetUri = properties.jwt().jwkSetUri();
-      return NimbusReactiveJwtDecoder.withJwkSetUri(jwkSetUri).build();
+    public ReactiveJwtDecoder reactiveJwtDecoder(
+        SecurityProperties props, ObjectProvider<KeyPair> kp) {
+      var jwtProps = props.jwt();
+      return Optional.ofNullable(kp.getIfAvailable())
+          .map(KeyPair::getPublic)
+          .filter(RSAPublicKey.class::isInstance)
+          .map(p -> (RSAPublicKey) p)
+          .map(pub -> NimbusReactiveJwtDecoder.withPublicKey(pub).build())
+          .or(
+              () ->
+                  Optional.ofNullable(jwtProps.secretKey())
+                      .filter(s -> !s.isBlank())
+                      .map(
+                          s ->
+                              NimbusReactiveJwtDecoder.withSecretKey(
+                                      new SecretKeySpec(s.getBytes(), ALGORITHM_HMAC_256))
+                                  .build()))
+          .or(
+              () ->
+                  Optional.ofNullable(jwtProps.jwkSetUri())
+                      .filter(u -> !u.isBlank())
+                      .map(u -> NimbusReactiveJwtDecoder.withJwkSetUri(u).build()))
+          .orElseThrow(
+              () ->
+                  new IllegalStateException(
+                      "No ReactiveJwtDecoder could be configured. Check app.security.jwt properties."));
     }
 
     @Bean
-    public GatewayAuthenticationGatewayFilterFactory gatewayAuthenticationFilter(
-        ReactiveJwtDecoder jwtDecoder,
-        ObjectProvider<RedisTokenBlacklistManager> blacklistManagerProvider,
-        ObjectProvider<Tracer> tracerProvider,
-        ObjectProvider<ObservationRegistry> observationRegistryProvider) {
-      return new GatewayAuthenticationGatewayFilterFactory(
-          jwtDecoder,
-          blacklistManagerProvider.getIfAvailable(),
-          tracerProvider,
-          observationRegistryProvider);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(SecurityWebFilterChain.class)
     public SecurityWebFilterChain springSecurityFilterChain(
         ServerHttpSecurity http,
-        PublicPathResolver resolver,
-        SecurityProperties properties,
-        ObjectProvider<UserContextFilter.Reactive> userContextWebFilterProvider) {
+        ApplicationContext context,
+        SecurityProperties props,
+        ObjectProvider<Tracer> tracer,
+        ReactiveJwtDecoder decoder) {
+
+      String[] publics = PublicPathResolver.reactive(context).resolve(props.publicPaths());
+
       http.cors(Customizer.withDefaults())
           .csrf(ServerHttpSecurity.CsrfSpec::disable)
           .securityContextRepository(NoOpServerSecurityContextRepository.getInstance())
           .authorizeExchange(
-              exchanges ->
-                  exchanges
-                      .pathMatchers(OPTIONS, "/**")
+              ex ->
+                  ex.pathMatchers(OPTIONS, "/**")
                       .permitAll()
-                      .pathMatchers(resolver.resolve(properties.publicPaths()))
+                      .pathMatchers(publics)
                       .permitAll()
                       .anyExchange()
-                      .authenticated());
+                      .authenticated())
+          .oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.jwtDecoder(decoder)));
 
-      userContextWebFilterProvider.ifAvailable(
-          filter -> http.addFilterAt(filter, SecurityWebFiltersOrder.AUTHENTICATION));
+      http.addFilterAt(
+          new UserContextFilter.Reactive(tracer.getIfAvailable()),
+          SecurityWebFiltersOrder.AUTHENTICATION);
 
-      return http.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults())).build();
+      return http.build();
     }
   }
 
-  @Configuration
-  @ConditionalOnClass(SecurityFilterChain.class)
+  /** SERVLET STACK CONFIGURATION */
+  @Configuration(proxyBeanMethods = false)
+  @ConditionalOnClass({jakarta.servlet.Filter.class, EnableWebSecurity.class})
   @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
   @EnableWebSecurity
   @EnableMethodSecurity
@@ -183,72 +178,71 @@ public class SecurityAutoConfiguration {
   static class ServletSecurityConfiguration {
 
     @Bean
-    public PublicPathResolver publicPathResolver(ApplicationContext context) {
-      return PublicPathResolver.mvc(context);
-    }
-
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource(SecurityProperties properties) {
-      CorsConfiguration configuration = getCorsConfiguration(properties.cors());
-      UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-      source.registerCorsConfiguration("/**", configuration);
+    public CorsConfigurationSource corsConfigurationSource(SecurityProperties props) {
+      var source = new UrlBasedCorsConfigurationSource();
+      source.registerCorsConfiguration("/**", SecurityUtils.buildCors(props.cors()));
       return source;
     }
 
     @Bean
-    public UserContextFilter.Servlet userContextFilter(ObjectProvider<Tracer> tracerProvider) {
-      return new UserContextFilter.Servlet(tracerProvider.getIfAvailable());
-    }
-
-    @Bean
     @ConditionalOnMissingBean
-    public JwtDecoder jwtDecoder(
-        SecurityProperties properties, ObjectProvider<KeyPair> keyPairProvider) {
-      String secretKey = properties.jwt().secretKey();
-      KeyPair keyPair = keyPairProvider.getIfAvailable();
-      if (keyPair != null && keyPair.getPublic() instanceof RSAPublicKey rsaPublicKey) {
-        return NimbusJwtDecoder.withPublicKey(rsaPublicKey).build();
-      }
-      if (secretKey != null && !secretKey.isBlank()) {
-        return NimbusJwtDecoder.withSecretKey(
-                new SecretKeySpec(secretKey.getBytes(), ALGORITHM_HMAC_256))
-            .build();
-      }
-      String jwkSetUri = properties.jwt().jwkSetUri();
-      if (jwkSetUri != null && !jwkSetUri.isBlank()) {
-        return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
-      }
-      return null;
+    public JwtDecoder jwtDecoder(SecurityProperties props, ObjectProvider<KeyPair> kp) {
+      var jwtProps = props.jwt();
+      return Optional.ofNullable(kp.getIfAvailable())
+          .map(KeyPair::getPublic)
+          .filter(RSAPublicKey.class::isInstance)
+          .map(p -> (RSAPublicKey) p)
+          .map(pub -> NimbusJwtDecoder.withPublicKey(pub).build())
+          .or(
+              () ->
+                  Optional.ofNullable(jwtProps.secretKey())
+                      .filter(s -> !s.isBlank())
+                      .map(
+                          s ->
+                              NimbusJwtDecoder.withSecretKey(
+                                      new SecretKeySpec(s.getBytes(), ALGORITHM_HMAC_256))
+                                  .build()))
+          .or(
+              () ->
+                  Optional.ofNullable(jwtProps.jwkSetUri())
+                      .filter(u -> !u.isBlank())
+                      .map(u -> NimbusJwtDecoder.withJwkSetUri(u).build()))
+          .orElse(null);
     }
 
     @Bean
-    @ConditionalOnMissingBean(SecurityFilterChain.class)
     public SecurityFilterChain securityFilterChain(
         HttpSecurity http,
-        UserContextFilter.Servlet userContextFilter,
-        PublicPathResolver resolver,
-        SecurityProperties properties,
-        ObjectProvider<JwtDecoder> jwtDecoderProvider)
+        ApplicationContext context,
+        SecurityProperties props,
+        ObjectProvider<Tracer> tracer,
+        ObjectProvider<JwtDecoder> decoderProvider)
         throws Exception {
+
+      String[] publics = PublicPathResolver.mvc(context).resolve(props.publicPaths());
+      JwtDecoder decoder = decoderProvider.getIfAvailable();
+
       http.cors(Customizer.withDefaults())
           .csrf(AbstractHttpConfigurer::disable)
           .sessionManagement(s -> s.sessionCreationPolicy(STATELESS))
-          .logout(LogoutConfigurer::disable)
           .authorizeHttpRequests(
               auth ->
                   auth.requestMatchers(OPTIONS, "/**")
                       .permitAll()
-                      .requestMatchers(resolver.resolve(properties.publicPaths()))
+                      .requestMatchers(publics)
                       .permitAll()
                       .anyRequest()
                       .authenticated());
 
-      if (jwtDecoderProvider.getIfAvailable() != null) {
-        http.oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
+      if (decoder != null) {
+        http.oauth2ResourceServer(oauth -> oauth.jwt(jwt -> jwt.decoder(decoder)));
       }
 
-      return http.addFilterBefore(userContextFilter, UsernamePasswordAuthenticationFilter.class)
-          .build();
+      http.addFilterAfter(
+          new UserContextFilter.Servlet(tracer.getIfAvailable()),
+          BearerTokenAuthenticationFilter.class);
+
+      return http.build();
     }
   }
 }

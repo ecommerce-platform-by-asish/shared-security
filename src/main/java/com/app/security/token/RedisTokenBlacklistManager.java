@@ -1,5 +1,7 @@
 package com.app.security.token;
 
+import static com.app.security.model.SecurityConstants.JWT_BLACKLIST;
+
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,13 +15,11 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 public class RedisTokenBlacklistManager {
 
-  private static final String BLACKLIST_PREFIX = "jwt:blacklist:";
-
   private final @Nullable StringRedisTemplate blockingTemplate;
   private final @Nullable ReactiveStringRedisTemplate reactiveTemplate;
 
   private static String key(String jti) {
-    return BLACKLIST_PREFIX + jti;
+    return JWT_BLACKLIST + jti;
   }
 
   /** Persists a token ID in the blacklist for the specified duration. */
