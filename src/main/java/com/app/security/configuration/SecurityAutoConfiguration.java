@@ -162,7 +162,7 @@ public class SecurityAutoConfiguration {
 
       http.addFilterAt(
           new UserContextFilter.Reactive(tracer.getIfAvailable()),
-          SecurityWebFiltersOrder.AUTHENTICATION);
+          SecurityWebFiltersOrder.AUTHORIZATION);
 
       return http.build();
     }

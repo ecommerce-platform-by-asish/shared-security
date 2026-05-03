@@ -77,7 +77,8 @@ public final class UserContextFilter {
               userId -> {
                 if (tracer != null) {
                   try (var _ = tracer.createBaggageInScope(SecurityConstants.USER_ID_KEY, userId)) {
-                    return chain.filter(exchange);
+                     // In WebFlux, Baggage fields created in a try block do not propagate automatically to 
+                     // the event loop threads. We must push the current context.
                   }
                 }
                 return chain.filter(exchange);
